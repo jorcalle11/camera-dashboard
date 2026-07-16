@@ -106,13 +106,13 @@ recordings/
 
 **Indexing:** a directory watcher (chokidar) detects each new segment file; the *previous* segment is then complete → probe real duration with ffprobe and insert its row. On startup, a **reconciliation scan** heals the DB against the disk (adds missing rows, drops rows for missing files). The filesystem is the source of truth; the DB is a queryable index.
 
-**Retention:** hourly job deletes segments older than the camera's retention (default 7 days), removes rows, prunes empty day folders. Safety valve: if disk free space drops below a configurable threshold, delete oldest segments regardless of age.
+**Retention:** hourly job deletes segments older than the camera's retention (default 7 days), removes rows, prunes empty day folders. Safety valve: if disk free space drops below a configurable threshold (default 10 GB), delete oldest segments regardless of age.
 
 ### Error handling
 
 | Failure | Behavior |
 |---|---|
-| Camera offline / ffmpeg exits | RecorderManager restarts with exponential backoff (capped); status `retrying` pushed over WebSocket |
+| Camera offline / ffmpeg exits | RecorderManager restarts with exponential backoff (1s doubling to a 60s cap, retries forever); status `retrying` pushed over WebSocket |
 | Node/server crash | Docker restarts container; reconciliation scan heals index; ffmpeg re-spawned; ≤1 min footage lost |
 | Disk near full | Safety-valve deletion of oldest segments; warning pushed over WebSocket and shown in top bar |
 | Partial/corrupt last segment | Reconciliation probes with ffprobe; unreadable files are skipped (not indexed) |
