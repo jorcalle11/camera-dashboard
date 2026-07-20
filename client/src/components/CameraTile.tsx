@@ -36,7 +36,7 @@ export default function CameraTile({ camera }: CameraTileProps) {
       className="relative aspect-video overflow-hidden rounded-lg bg-black"
     >
       <VideoStream cameraId={camera.id} paused={!visible} className="h-full w-full" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent p-2">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/70 to-transparent p-2">
         <span className="text-sm font-medium">{camera.name}</span>
       </div>
     </div>
