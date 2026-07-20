@@ -16,6 +16,10 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
         rewrite: (path) => path.replace(/^\/go2rtc/, ""),
+        // go2rtc rejects WebSocket upgrades whose Origin doesn't match its
+        // own host (403). changeOrigin only rewrites Host, so also rewrite
+        // the Origin header on proxied requests.
+        headers: { Origin: go2rtcTarget },
       },
     },
   },
