@@ -1,4 +1,5 @@
 import { useState } from "react"
+import LiveGrid from "./components/LiveGrid"
 import TabBar, { type View } from "./components/TabBar"
 
 export default function App() {
@@ -9,7 +10,7 @@ export default function App() {
       <TabBar view={view} onChange={setView} />
       <main className="flex-1 overflow-y-auto pb-14 md:pb-0">
         {view === "live" ? (
-          <p className="p-4 text-neutral-400">Live grid goes here (Task 7)</p>
+          <LiveGrid />
         ) : (
           <p className="p-4 text-neutral-400">Timeline arrives in Phase 3</p>
         )}
