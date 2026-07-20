@@ -11,7 +11,7 @@ const go2rtcPath = join(root, "go2rtc", "go2rtc.yaml")
 mkdirSync(dirname(go2rtcPath), { recursive: true })
 writeFileSync(go2rtcPath, renderGo2rtc(config))
 
-const camerasJsonPath = join(root, "client", "public", "cameras.json")
+const camerasJsonPath = join(root, "web-app", "public", "cameras.json")
 mkdirSync(dirname(camerasJsonPath), { recursive: true })
 writeFileSync(camerasJsonPath, renderClientCameras(config))
 

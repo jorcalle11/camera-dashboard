@@ -1,5 +1,5 @@
 {
-  "name": "camera-dashboard-client",
+  "name": "camera-dashboard-web-app",
   "private": true,
   "type": "module",
   "scripts": {
