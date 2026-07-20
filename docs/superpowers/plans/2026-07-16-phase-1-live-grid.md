@@ -181,7 +181,7 @@ git commit -m "chore: scaffold repo with cameras.yml as config source of truth"
   - Generated file `client/public/cameras.json`: array of `{ id: string; name: string }` for enabled cameras only (consumed by Task 5).
   - Generated file `go2rtc/go2rtc.yaml` (consumed by Task 3).
 
-- [ ] **Step 1: Write failing tests for `loadConfig`**
+- [x] **Step 1: Write failing tests for `loadConfig`**
 
 `tools/__tests__/config.test.ts`:
 
@@ -239,12 +239,12 @@ describe("loadConfig", () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run tools/__tests__/config.test.ts`
 Expected: FAIL — cannot resolve `../config`.
 
-- [ ] **Step 3: Implement `tools/config.ts`**
+- [x] **Step 3: Implement `tools/config.ts`**
 
 ```ts
 import { parse } from "yaml"
@@ -302,19 +302,19 @@ export function loadConfig(yamlText: string): AppConfig {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tools/__tests__/config.test.ts`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/config.ts tools/__tests__/config.test.ts
 git commit -m "feat: load and validate cameras.yml"
 ```
 
-- [ ] **Step 6: Write failing tests for the renderers**
+- [x] **Step 6: Write failing tests for the renderers**
 
 `tools/__tests__/render.test.ts`:
 
@@ -353,12 +353,12 @@ describe("renderClientCameras", () => {
 })
 ```
 
-- [ ] **Step 7: Run tests to verify they fail**
+- [x] **Step 7: Run tests to verify they fail**
 
 Run: `npx vitest run tools/__tests__/render.test.ts`
 Expected: FAIL — cannot resolve `../render`.
 
-- [ ] **Step 8: Implement `tools/render.ts`**
+- [x] **Step 8: Implement `tools/render.ts`**
 
 ```ts
 import { stringify } from "yaml"
@@ -388,12 +388,12 @@ export function renderClientCameras(config: AppConfig): string {
 }
 ```
 
-- [ ] **Step 9: Run tests to verify they pass**
+- [x] **Step 9: Run tests to verify they pass**
 
 Run: `npx vitest run tools/__tests__/render.test.ts`
 Expected: PASS (2 tests).
 
-- [ ] **Step 10: Implement the CLI entry `tools/generate.ts`**
+- [x] **Step 10: Implement the CLI entry `tools/generate.ts`**
 
 ```ts
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -417,12 +417,12 @@ console.log(`wrote ${go2rtcPath}`)
 console.log(`wrote ${camerasJsonPath}`)
 ```
 
-- [ ] **Step 11: Run the generator and inspect output**
+- [x] **Step 11: Run the generator and inspect output**
 
 Run: `npm run generate && cat go2rtc/go2rtc.yaml client/public/cameras.json`
 Expected: both files written; go2rtc.yaml contains `${CAM1_RTSP_URL}` placeholder (NOT a real URL); cameras.json is `[{ "id": "cam1", "name": "Front Door" }]`.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add tools/ go2rtc/go2rtc.yaml client/public/cameras.json
