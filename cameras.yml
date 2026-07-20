@@ -1,0 +1,11 @@
+# Single source of truth for cameras.
+# `url` values reference env vars resolved by go2rtc at runtime —
+# never put credentials in this file.
+webrtc_candidate: ${HOST_IP}:8555
+
+cameras:
+  - id: cam1
+    name: Front Door
+    url: ${CAM1_RTSP_URL}
+    enabled: true
+    retention_days: 7
