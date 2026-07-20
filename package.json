@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "sync:cameras": "tsx tools/sync.ts && tsx tools/generate.ts",
+    "sync-cameras": "tsx tools/sync.ts && tsx tools/generate.ts",
     "test": "vitest run"
   },
   "devDependencies": {
