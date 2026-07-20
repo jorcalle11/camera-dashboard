@@ -815,7 +815,7 @@ git commit -m "feat: load camera list from generated cameras.json"
 - Consumes: go2rtc proxied at `/go2rtc` (Vite proxy from Task 4); go2rtc serves its `video-stream` custom element at `/go2rtc/video-stream.js`.
 - Produces: `<VideoStream cameraId="cam1" paused={false} className="..." />` — consumed by `CameraTile` in Task 7. Also `posterUrl(cameraId: string): string` for still-frame posters.
 
-- [ ] **Step 1: Implement `client/src/lib/go2rtc.ts`**
+- [x] **Step 1: Implement `client/src/lib/go2rtc.ts`**
 
 ```ts
 export const GO2RTC_BASE = "/go2rtc"
@@ -850,7 +850,7 @@ export function loadVideoStreamElement(): Promise<void> {
 }
 ```
 
-- [ ] **Step 2: Implement `client/src/components/VideoStream.tsx`**
+- [x] **Step 2: Implement `client/src/components/VideoStream.tsx`**
 
 ```tsx
 import { useEffect, useRef, useState } from "react"
@@ -916,12 +916,12 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
 }
 ```
 
-- [ ] **Step 3: Verify manually against live go2rtc**
+- [x] **Step 3: Verify manually against live go2rtc**
 
 With `docker compose up -d go2rtc` running and `npm run dev` in `client/`, temporarily change `App.tsx`'s live branch to `<VideoStream cameraId="cam1" className="aspect-video" />`, open `http://localhost:5173`.
 Expected: live video renders inside the app shell. Revert the temporary change afterwards (`git checkout client/src/App.tsx` if needed — Task 7 wires it properly).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add client/src/lib/go2rtc.ts client/src/components/VideoStream.tsx
