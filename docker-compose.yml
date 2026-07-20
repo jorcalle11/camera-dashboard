@@ -10,3 +10,20 @@ services:
       - "8554:8554"       # RTSP restream (recorder consumes this in Phase 2)
       - "8555:8555/tcp"   # WebRTC
       - "8555:8555/udp"   # WebRTC
+
+  client:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      GO2RTC_URL: http://go2rtc:1984
+    volumes:
+      - ./client:/app
+      - client_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - go2rtc
+
+volumes:
+  client_node_modules:
