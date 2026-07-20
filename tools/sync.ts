@@ -89,7 +89,7 @@ export function envKeysFromFile(text: string): string[] {
 }
 
 const CAMERAS_YML_HEADER = `# Single source of truth for cameras.
-# Managed by \`npm run sync\` (from .env) — manual edits to name/enabled/
+# Managed by \`npm run sync:cameras\` (from .env) — manual edits to name/enabled/
 # retention_days are preserved; url values reference env vars resolved by
 # go2rtc at runtime. Never put credentials in this file.
 `
