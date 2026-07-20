@@ -493,7 +493,7 @@ git commit -m "feat: run go2rtc via docker-compose with generated config"
 **Interfaces:**
 - Produces: running Vite dev server on :5173 with `/go2rtc` proxied (http + ws) to go2rtc; `<App>` shell with two views — `live` (filled in Task 7) and `timeline` (placeholder until Phase 3); `TabBar` with `view`/`onChange` props as defined below.
 
-- [ ] **Step 1: Create `client/package.json`**
+- [x] **Step 1: Create `client/package.json`**
 
 ```json
 {
@@ -524,7 +524,7 @@ git commit -m "feat: run go2rtc via docker-compose with generated config"
 }
 ```
 
-- [ ] **Step 2: Create `client/vite.config.ts`**
+- [x] **Step 2: Create `client/vite.config.ts`**
 
 ```ts
 import tailwindcss from "@tailwindcss/vite"
@@ -554,7 +554,7 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 3: Create `client/tsconfig.json`**
+- [x] **Step 3: Create `client/tsconfig.json`**
 
 ```json
 {
@@ -572,7 +572,7 @@ export default defineConfig({
 }
 ```
 
-- [ ] **Step 4: Create `client/index.html`**
+- [x] **Step 4: Create `client/index.html`**
 
 ```html
 <!doctype html>
@@ -589,7 +589,7 @@ export default defineConfig({
 </html>
 ```
 
-- [ ] **Step 5: Create `client/src/index.css`**
+- [x] **Step 5: Create `client/src/index.css`**
 
 ```css
 @import "tailwindcss";
@@ -602,7 +602,7 @@ body,
 }
 ```
 
-- [ ] **Step 6: Create `client/src/main.tsx`**
+- [x] **Step 6: Create `client/src/main.tsx`**
 
 ```tsx
 import { StrictMode } from "react"
@@ -617,7 +617,7 @@ createRoot(document.getElementById("root")!).render(
 )
 ```
 
-- [ ] **Step 7: Create `client/src/components/TabBar.tsx`**
+- [x] **Step 7: Create `client/src/components/TabBar.tsx`**
 
 ```tsx
 export type View = "live" | "timeline"
@@ -655,7 +655,7 @@ export default function TabBar({ view, onChange }: TabBarProps) {
 }
 ```
 
-- [ ] **Step 8: Create `client/src/App.tsx`**
+- [x] **Step 8: Create `client/src/App.tsx`**
 
 ```tsx
 import { useState } from "react"
@@ -679,12 +679,12 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 9: Install and verify dev server**
+- [x] **Step 9: Install and verify dev server**
 
 Run: `npm install` then `npm run dev` (both in `client/`).
 Open `http://localhost:5173` — expected: dark shell, "Live/Timeline" tabs at the bottom on a narrow window and at the top when the window is ≥768px wide. Verify by resizing devtools.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add client/
