@@ -440,7 +440,7 @@ git commit -m "feat: generate go2rtc config and client camera list from cameras.
 - Consumes: `go2rtc/go2rtc.yaml` from Task 2; `.env` from Task 1.
 - Produces: go2rtc reachable at `http://localhost:1984` (API + built-in UI), RTSP restream at `rtsp://localhost:8554/cam1`, WebRTC on port 8555. Task 8 adds the `client` service to this same file.
 
-- [ ] **Step 1: Create `docker-compose.yml`**
+- [x] **Step 1: Create `docker-compose.yml`**
 
 ```yaml
 services:
@@ -459,24 +459,24 @@ services:
 
 Note: go2rtc resolves `${CAM1_RTSP_URL}` and `${HOST_IP}` inside its config from the container environment supplied by `env_file`.
 
-- [ ] **Step 2: Start it**
+- [x] **Step 2: Start it**
 
 Run: `docker compose up -d go2rtc && docker compose logs go2rtc | tail -20`
 Expected: log lines showing config loaded and listeners on :1984, :8554, :8555; no auth/TLS errors for cam1.
 
-- [ ] **Step 3: Verify the stream via API**
+- [x] **Step 3: Verify the stream via API**
 
 Run: `curl -s http://localhost:1984/api/streams | python3 -m json.tool`
 Expected: JSON containing a `cam1` entry. Then check a producer is connected:
 `curl -s "http://localhost:1984/api/frame.jpeg?src=cam1" -o /tmp/frame.jpg && file /tmp/frame.jpg`
 Expected: `JPEG image data` — a real frame from the camera.
 
-- [ ] **Step 4: Verify WebRTC in a browser (manual)**
+- [x] **Step 4: Verify WebRTC in a browser (manual)**
 
 Open `http://localhost:1984/stream.html?src=cam1` in Chrome.
 Expected: live video with ~sub-second latency. If video fails on WebRTC, go2rtc falls back to MSE — still acceptable for Docker Desktop on Mac (note in PROJECT_NOTES if that happens).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docker-compose.yml
