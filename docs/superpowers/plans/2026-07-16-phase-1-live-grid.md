@@ -1134,7 +1134,7 @@ git commit -m "feat: live camera grid with offscreen pause and fullscreen tiles"
 - Consumes: everything above.
 - Produces: `docker compose up` brings up the whole Phase 1 stack; client on `http://localhost:5173`. (Prod nginx build is deferred to Phase 3, when there's an API to proxy — YAGNI until then.)
 
-- [ ] **Step 1: Add the `client` service to `docker-compose.yml`**
+- [x] **Step 1: Add the `client` service to `docker-compose.yml`**
 
 ```yaml
   client:
@@ -1157,21 +1157,21 @@ volumes:
 
 (The named volume keeps Linux-built `node_modules` from clobbering the Mac-built ones in the bind mount.)
 
-- [ ] **Step 2: Full-stack smoke test**
+- [x] **Step 2: Full-stack smoke test**
 
 Run: `docker compose up -d && docker compose ps`
 Expected: both services `running`. Then open `http://localhost:5173`:
 - Live grid shows cam1 playing.
 - `docker compose logs client | tail -5` shows Vite ready, no proxy errors.
 
-- [ ] **Step 3: Phase 1 acceptance checklist (manual, from spec success criteria)**
+- [x] **Step 3: Phase 1 acceptance checklist (manual, from spec success criteria)**
 
-- [ ] Live view on desktop Chrome with ~sub-second latency (wave at the camera).
-- [ ] Live view on iPhone Safari over LAN.
-- [ ] `cameras.yml` edit → `npm run generate` → `docker compose restart go2rtc` picks up a renamed camera without touching any other file.
-- [ ] No credentials appear in any committed file: `git grep -I "rtsps://" -- ':!*.example' ':!docs'` returns only `${...}` placeholders or nothing.
+- [x] Live view on desktop Chrome with ~sub-second latency (wave at the camera).
+- [x] Live view on iPhone Safari over LAN.
+- [x] `cameras.yml` edit → `npm run generate` → `docker compose restart go2rtc` picks up a renamed camera without touching any other file.
+- [x] No credentials appear in any committed file: `git grep -I "rtsps://" -- ':!*.example' ':!docs'` returns only `${...}` placeholders or nothing.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docker-compose.yml
