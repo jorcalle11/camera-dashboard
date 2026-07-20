@@ -74,7 +74,7 @@ camera-dashboard/
 **Interfaces:**
 - Produces: `cameras.yml` schema consumed by Task 2 — a `cameras` array where each entry has `id` (string, slug), `name` (string), `url` (string, may contain `${ENV_VAR}`), `enabled` (boolean), `retention_days` (number). Also a top-level `webrtc_candidate` (string, `${HOST_IP}:8555`).
 
-- [ ] **Step 1: Create `.gitignore`**
+- [x] **Step 1: Create `.gitignore`**
 
 ```gitignore
 node_modules/
@@ -85,7 +85,7 @@ data/
 *.log
 ```
 
-- [ ] **Step 2: Create `.env.example`**
+- [x] **Step 2: Create `.env.example`**
 
 ```sh
 # Copy to .env and fill in. NEVER commit .env.
@@ -95,7 +95,7 @@ CAM1_RTSP_URL=rtsps://username:password@192.168.68.107:322/stream0
 HOST_IP=192.168.68.100
 ```
 
-- [ ] **Step 3: Create `cameras.yml`**
+- [x] **Step 3: Create `cameras.yml`**
 
 ```yaml
 # Single source of truth for cameras.
@@ -111,7 +111,7 @@ cameras:
     retention_days: 7
 ```
 
-- [ ] **Step 4: Create root `package.json`**
+- [x] **Step 4: Create root `package.json`**
 
 ```json
 {
@@ -131,7 +131,7 @@ cameras:
 }
 ```
 
-- [ ] **Step 5: Create root `tsconfig.json`**
+- [x] **Step 5: Create root `tsconfig.json`**
 
 ```json
 {
@@ -147,17 +147,17 @@ cameras:
 }
 ```
 
-- [ ] **Step 6: Install and verify**
+- [x] **Step 6: Install and verify**
 
 Run: `npm install && npx tsc --noEmit`
 Expected: installs cleanly; tsc exits 0 (no source files yet is fine).
 
-- [ ] **Step 7: Create local `.env`**
+- [x] **Step 7: Create local `.env`**
 
 Run: `cp .env.example .env` and fill in the real Wyze URL (from the password manager per PROJECT_NOTES.md) and this Mac's LAN IP (`ipconfig getifaddr en0`).
 Expected: `.env` exists, `git status` does NOT list it.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add .gitignore .env.example cameras.yml package.json tsconfig.json package-lock.json
