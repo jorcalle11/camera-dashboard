@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "generate": "tsx tools/generate.ts",
+    "sync": "tsx tools/sync.ts && tsx tools/generate.ts",
     "test": "vitest run"
   },
   "devDependencies": {

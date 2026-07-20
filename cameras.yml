@@ -1,15 +1,14 @@
 # Single source of truth for cameras.
-# `url` values reference env vars resolved by go2rtc at runtime —
-# never put credentials in this file.
+# Managed by `npm run sync` (from .env) — manual edits to name/enabled/
+# retention_days are preserved; url values reference env vars resolved by
+# go2rtc at runtime. Never put credentials in this file.
 webrtc_candidate: ${HOST_IP}:8555
-
 cameras:
   - id: cam1
     name: Front Door
     url: ${CAM1_RTSP_URL}
     enabled: true
     retention_days: 7
-  
   - id: cam2
     name: Balcon 1
     url: ${CAM2_RTSP_URL}
