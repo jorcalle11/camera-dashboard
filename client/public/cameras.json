@@ -2,5 +2,9 @@
   {
     "id": "cam1",
     "name": "Front Door"
+  },
+  {
+    "id": "cam2",
+    "name": "Balcon 1"
   }
 ]

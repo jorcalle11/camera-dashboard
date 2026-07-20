@@ -9,3 +9,9 @@ cameras:
     url: ${CAM1_RTSP_URL}
     enabled: true
     retention_days: 7
+  
+  - id: cam2
+    name: Balcon 1
+    url: ${CAM2_RTSP_URL}
+    enabled: true
+    retention_days: 7

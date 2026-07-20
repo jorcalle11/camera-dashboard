@@ -10,3 +10,5 @@ webrtc:
 streams:
   cam1:
     - "${CAM1_RTSP_URL}"
+  cam2:
+    - "${CAM2_RTSP_URL}"
