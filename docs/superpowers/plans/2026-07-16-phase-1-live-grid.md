@@ -703,7 +703,7 @@ git commit -m "feat: scaffold React client with Tailwind and mobile-first tab sh
 - Consumes: `client/public/cameras.json` (`[{ id, name }]`) generated in Task 2, served by Vite at `/cameras.json`.
 - Produces: `Camera { id: string; name: string }` type and `useCameras(): { cameras: Camera[]; error: string | null; loading: boolean }` — consumed by `LiveGrid` in Task 7.
 
-- [ ] **Step 1: Create `client/src/types.ts`**
+- [x] **Step 1: Create `client/src/types.ts`**
 
 ```ts
 export interface Camera {
@@ -712,7 +712,7 @@ export interface Camera {
 }
 ```
 
-- [ ] **Step 2: Write the failing hook test**
+- [x] **Step 2: Write the failing hook test**
 
 `client/src/hooks/__tests__/useCameras.test.ts`:
 
@@ -751,12 +751,12 @@ describe("useCameras", () => {
 })
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run (in `client/`): `npx vitest run src/hooks/__tests__/useCameras.test.ts`
 Expected: FAIL — cannot resolve `../useCameras`.
 
-- [ ] **Step 4: Implement `client/src/hooks/useCameras.ts`**
+- [x] **Step 4: Implement `client/src/hooks/useCameras.ts`**
 
 ```ts
 import { useEffect, useState } from "react"
@@ -792,12 +792,12 @@ export function useCameras() {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run (in `client/`): `npx vitest run src/hooks/__tests__/useCameras.test.ts`
 Expected: PASS (2 tests).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/types.ts client/src/hooks/
