@@ -175,7 +175,7 @@ Both services have `restart: unless-stopped`, so the stack survives reboots.
 - **Phase 4 — detection**: motion events
 - **Phase 5 — settings**: camera controls (night vision, quality)
 
-Design docs live in `docs/superpowers/`.
+Design docs live in `docs/` (`plans/` and `specs/`).
 
 ## Troubleshooting
 

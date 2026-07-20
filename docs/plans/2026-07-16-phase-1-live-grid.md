@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker Compose, go2rtc 1.9.x, Node 22, TypeScript (strict), Vite, React 18, Tailwind CSS v4, vitest, `yaml` npm package.
 
-**Spec:** `docs/superpowers/specs/2026-07-16-core-nvr-design.md`
+**Spec:** `docs/specs/2026-07-16-core-nvr-design.md`
 
 ## Global Constraints
 
