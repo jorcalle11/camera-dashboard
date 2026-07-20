@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Mobile browser chrome: prefer dynamic viewport height */
+html,
+body,
+#root {
+  height: 100dvh;
+}
