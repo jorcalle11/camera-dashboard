@@ -941,7 +941,7 @@ git commit -m "feat: wrap go2rtc video-stream element in a React component"
 - Consumes: `useCameras()` from Task 5; `VideoStream` from Task 6.
 - Produces: `<LiveGrid />` (no props) — the home view.
 
-- [ ] **Step 1: Write the failing grid test**
+- [x] **Step 1: Write the failing grid test**
 
 `client/src/components/__tests__/LiveGrid.test.tsx`:
 
@@ -1001,12 +1001,12 @@ describe("LiveGrid", () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run (in `client/`): `npx vitest run src/components/__tests__/LiveGrid.test.tsx`
 Expected: FAIL — cannot resolve `../LiveGrid`.
 
-- [ ] **Step 3: Implement `client/src/components/CameraTile.tsx`**
+- [x] **Step 3: Implement `client/src/components/CameraTile.tsx`**
 
 ```tsx
 import { useEffect, useRef, useState } from "react"
@@ -1055,7 +1055,7 @@ export default function CameraTile({ camera }: CameraTileProps) {
 }
 ```
 
-- [ ] **Step 4: Implement `client/src/components/LiveGrid.tsx`**
+- [x] **Step 4: Implement `client/src/components/LiveGrid.tsx`**
 
 ```tsx
 import { useCameras } from "../hooks/useCameras"
@@ -1078,7 +1078,7 @@ export default function LiveGrid() {
 }
 ```
 
-- [ ] **Step 5: Wire into `client/src/App.tsx`**
+- [x] **Step 5: Wire into `client/src/App.tsx`**
 
 Replace the live placeholder line:
 
@@ -1105,18 +1105,18 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 6: Run all client tests**
+- [x] **Step 6: Run all client tests**
 
 Run (in `client/`): `npx vitest run`
 Expected: PASS — LiveGrid tests (2) + useCameras tests (2).
 
-- [ ] **Step 7: Verify live in browsers (manual)**
+- [x] **Step 7: Verify live in browsers (manual)**
 
 With go2rtc up and `npm run dev`:
 - Desktop Chrome: live tile with camera name overlay; tile click toggles fullscreen; window ≥768px shows grid layout and top tabs.
 - iPhone Safari (same LAN, `http://<mac-ip>:5173`): full-width tile, bottom tab bar above the home indicator, video plays inline (not hijacked to native fullscreen), scrolling the tile offscreen and back swaps stream→poster→stream.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add client/src/components/ client/src/App.tsx
