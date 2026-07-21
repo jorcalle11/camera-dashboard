@@ -17,7 +17,7 @@ Out of scope (future specs): motion/object detection (Phase 4 — planned exit r
 
 | Topic | Decision |
 |---|---|
-| Language | TypeScript everywhere (server + client) |
+| Language | TypeScript everywhere (server + web-app) |
 | Hosting | Develop on macOS (Docker Desktop), deploy to personal Linux server via docker-compose |
 | Recording | Continuous 24/7, auto-start for every enabled camera; no manual start/stop |
 | Retention | 7 days continuous (configurable per camera), plus low-disk safety valve |
@@ -41,8 +41,8 @@ Out of scope (future specs): motion/object detection (Phase 4 — planned exit r
 services:
   go2rtc:    # alexxit/go2rtc — connects to each camera once, fans out streams
   server:    # Node.js/Express (TS) — API + RecorderManager + retention + SQLite
-  client:    # React (TS) — dev: Vite HMR; prod: static build
-  nginx:     # prod entry point — serves client build, proxies /api and /recordings
+  web-app:   # React (TS) — dev: Vite HMR; prod: static build
+  nginx:     # prod entry point — serves web-app build, proxies /api and /recordings
 ```
 
 - **go2rtc is the only component that touches cameras.** It consumes each camera's `rtsps://` URL (credentials from `.env`) and restreams: WebRTC/MSE to browsers, plain RTSP on the Docker network to the recorder, `frame.jpeg` snapshots. Wyze cams cannot handle multiple direct RTSP clients.
@@ -223,7 +223,7 @@ React + TypeScript + Vite + Tailwind CSS. Two screens; base styles target phones
 
 ## 8. Build phases (this spec)
 
-1. **Phase 1 — live:** compose skeleton (go2rtc + client), `cameras.yml`, live grid on phone + desktop.
+1. **Phase 1 — live:** compose skeleton (go2rtc + web-app), `cameras.yml`, live grid on phone + desktop.
 2. **Phase 2 — record:** server container, RecorderManager + segment indexing, snapshots, system status, WebSocket badges.
 3. **Phase 3 — timeline:** recordings/summary/VOD endpoints, retention job + disk safety valve, timeline UI, nginx prod config, deploy to Linux server.
 

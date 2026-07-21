@@ -14,8 +14,11 @@ Wyze cam ──(1 rtsps connection)──▶ go2rtc ──▶ WebRTC / MSE ─�
 - **go2rtc** connects once to each camera and restreams to any number of
   viewers (WebRTC first, MSE fallback).
 - **web-app** is a React + Tailwind grid of live tiles (offscreen tiles pause
-  to a still poster; click a tile for fullscreen). In dev it runs Vite with a
-  `/go2rtc` proxy (http + ws).
+  to a still poster; click a tile for fullscreen). In dev it runs Vite with
+  `/go2rtc`, `/api`, and `/recordings` proxies.
+- **server** is a Node/Express container that records 24/7 from go2rtc's
+  RTSP restream into 60s MP4 segments, indexes them in SQLite, serves API + WebSocket,
+  and captures snapshots.
 - **`cameras.yml` is the single source of truth** for cameras. `go2rtc.yaml`
   and `web-app/public/cameras.json` are generated from it — never edit those
   by hand.
@@ -25,15 +28,16 @@ Wyze cam ──(1 rtsps connection)──▶ go2rtc ──▶ WebRTC / MSE ─�
 ## Prerequisites
 
 - Docker + Docker Compose
-- Node 22+ (for the config sync/generate tooling)
 - Cameras reachable on your network with RTSP/RTSPS enabled
+
+> **No host installs:** all Node tooling runs inside Docker. Root `package.json`
+> contains only convenience scripts that delegate to `docker compose`.
 
 ## Quick start
 
 ```bash
 git clone <repo-url> camera-dashboard
 cd camera-dashboard
-npm install
 
 # 1. Secrets
 cp .env.example .env
@@ -41,9 +45,9 @@ cp .env.example .env
 #    - set HOST_IP to this machine's LAN IP (macOS: ipconfig getifaddr en0)
 
 # 2. Generate configs from .env
-npm run sync-cameras
+npm run setup
 
-# 3. Bring up the stack (go2rtc + web-app)
+# 3. Bring up the stack (go2rtc + server + web-app)
 docker compose up -d
 
 # 4. Open it
@@ -70,7 +74,7 @@ Cameras are detected from numbered `CAMn_RTSP_URL` variables in `.env`.
 2. **Sync:**
 
    ```bash
-   npm run sync-cameras
+   npm run setup
    ```
 
    This adds `cam3` ("Camera 3") to `cameras.yml` and regenerates
@@ -91,7 +95,7 @@ Cameras are detected from numbered `CAMn_RTSP_URL` variables in `.env`.
 5. Reload the browser. The new tile appears.
 
 **Removing a camera:** delete its `CAMn_RTSP_URL` line from `.env`, run
-`npm run sync-cameras`, and force-recreate go2rtc.
+`npm run setup`, and force-recreate go2rtc.
 
 ### Camera URL format
 
@@ -114,16 +118,15 @@ Suitable for a LAN / homelab, with remote access via
 your router — go2rtc's API (`:1984`) has no authentication.
 
 ```bash
-# on the server (Docker + Node required)
+# on the server (Docker required)
 git clone <repo-url> camera-dashboard
 cd camera-dashboard
-npm install
 
 cp .env.example .env
 # - fill in the real camera URLs
 # - HOST_IP=<the SERVER's LAN IP>   <- critical: WebRTC advertises this address
 
-npm run sync-cameras
+npm run setup
 docker compose up -d
 ```
 
@@ -136,7 +139,7 @@ Then:
 - **If the server's IP changes:** update `HOST_IP` in `.env` and
   `docker compose up -d --force-recreate go2rtc`.
 
-Both services have `restart: unless-stopped`, so the stack survives reboots.
+All services have `restart: unless-stopped`, so the stack survives reboots.
 
 > A production build (nginx serving static assets, go2rtc API not exposed to
 > the host, TLS) is planned for Phase 3.
@@ -145,32 +148,32 @@ Both services have `restart: unless-stopped`, so the stack survives reboots.
 
 | Command | Where | What |
 |---|---|---|
-| `npm run sync-cameras` | root | Sync `.env` cameras -> `cameras.yml` -> generated configs |
-| `npm test` | root | Config tooling tests |
-| `npm test` | `web-app/` | React component/hook tests |
-| `docker compose up -d` | root | Run the full stack |
+| `npm run setup` | root | Sync `.env` cameras -> `cameras.yml` -> generated configs |
+| `npm run test` | root | Run tests in all workspaces inside containers |
+| `npm run dev` | root | Start go2rtc + server + web-app in Docker |
 | `docker compose logs go2rtc --since 5m` | root | Debug camera connections |
 
 ## Project structure
 
 ```
 ├── .env.example          # secrets template (copy to .env — never committed)
-├── cameras.yml           # single source of truth (managed by sync-cameras)
-├── docker-compose.yml    # go2rtc + web-app services
-├── tools/                # sync/generate tooling (TypeScript, vitest)
+├── cameras.yml           # single source of truth (managed by npm run setup)
+├── docker-compose.yml    # go2rtc + server + web-app services
+├── cameras-setup/        # config sync/generate tooling (TypeScript, vitest)
 ├── go2rtc/go2rtc.yaml    # GENERATED — go2rtc config (${VAR} placeholders only)
+├── server/               # Node/Express API + RecorderManager + SQLite
 └── web-app/              # React client (Vite + Tailwind)
     ├── public/cameras.json   # GENERATED — [{ id, name }] for the grid
     └── src/
-        ├── components/   # LiveGrid, CameraTile, VideoStream, TabBar
-        ├── hooks/        # useCameras
+        ├── components/   # LiveGrid, CameraTile, VideoStream, TabBar, TileOverlay
+        ├── hooks/        # useCameras, useRecorderStatus
         └── lib/go2rtc.ts # go2rtc URLs + web component loader
 ```
 
 ## Roadmap
 
 - **Phase 1 — live grid** (done): live view, mobile-first UI, docker-compose
-- **Phase 2 — record**: 24/7 recording to disk, snapshots, status badges
+- **Phase 2 — record** (in progress): 24/7 recording to disk, snapshots, status badges
 - **Phase 3 — timeline**: playback UI, retention, production build/deployment
 - **Phase 4 — detection**: motion events
 - **Phase 5 — settings**: camera controls (night vision, quality)

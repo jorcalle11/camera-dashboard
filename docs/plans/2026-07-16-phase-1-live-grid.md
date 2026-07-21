@@ -27,19 +27,20 @@ camera-dashboard/
 ├── .env.example              # template for secrets (committed)
 ├── .gitignore
 ├── cameras.yml               # single source of truth for cameras
-├── docker-compose.yml        # go2rtc + client services
-├── package.json              # root: generator script deps (yaml, tsx, vitest)
-├── tsconfig.json             # root: for tools/
-├── tools/
+├── docker-compose.yml        # go2rtc + web-app services
+├── package.json              # root: orchestrator scripts (docker compose)
+├── tsconfig.json             # root: for cameras-setup/
+├── cameras-setup/
+│   ├── package.json          # generator script deps (yaml, tsx, vitest)
 │   ├── config.ts             # load + validate cameras.yml (pure functions)
 │   ├── render.ts             # render go2rtc.yaml + cameras.json strings
-│   ├── generate.ts           # CLI entry: read files, write outputs
+│   ├── index.ts              # CLI entry: read files, write outputs
 │   └── __tests__/
 │       ├── config.test.ts
 │       └── render.test.ts
 ├── go2rtc/
 │   └── go2rtc.yaml           # GENERATED (committed — no secrets, only ${VARS})
-└── client/
+└── web-app/
     ├── package.json
     ├── vite.config.ts        # Tailwind plugin + /go2rtc proxy (http + ws)
     ├── tsconfig.json
@@ -119,7 +120,22 @@ cameras:
   "private": true,
   "type": "module",
   "scripts": {
-    "generate": "tsx tools/generate.ts",
+    "setup": "docker compose run --rm cameras-setup npm run setup",
+    "test": "docker compose run --rm cameras-setup npm test",
+    "dev": "docker compose up"
+  }
+}
+```
+
+- [x] **Step 4b: Create `cameras-setup/package.json`**
+
+```json
+{
+  "name": "camera-dashboard-cameras-setup",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "tsx index.ts",
     "test": "vitest run"
   },
   "devDependencies": {
@@ -143,13 +159,13 @@ cameras:
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["tools"]
+  "include": ["cameras-setup"]
 }
 ```
 
 - [x] **Step 6: Install and verify**
 
-Run: `npm install && npx tsc --noEmit`
+Run: `cd cameras-setup && npm install && npx tsc --noEmit`
 Expected: installs cleanly; tsc exits 0 (no source files yet is fine).
 
 - [x] **Step 7: Create local `.env`**
@@ -160,7 +176,7 @@ Expected: `.env` exists, `git status` does NOT list it.
 - [x] **Step 8: Commit**
 
 ```bash
-git add .gitignore .env.example cameras.yml package.json tsconfig.json package-lock.json
+git add .gitignore .env.example cameras.yml package.json tsconfig.json cameras-setup/package.json package-lock.json
 git commit -m "chore: scaffold repo with cameras.yml as config source of truth"
 ```
 
@@ -169,8 +185,8 @@ git commit -m "chore: scaffold repo with cameras.yml as config source of truth"
 ### Task 2: Config generator (cameras.yml → go2rtc.yaml + cameras.json)
 
 **Files:**
-- Create: `tools/config.ts`, `tools/render.ts`, `tools/generate.ts`
-- Test: `tools/__tests__/config.test.ts`, `tools/__tests__/render.test.ts`
+- Create: `cameras-setup/config.ts`, `cameras-setup/render.ts`, `cameras-setup/index.ts`
+- Test: `cameras-setup/__tests__/config.test.ts`, `cameras-setup/__tests__/render.test.ts`
 
 **Interfaces:**
 - Consumes: `cameras.yml` schema from Task 1.
@@ -178,12 +194,12 @@ git commit -m "chore: scaffold repo with cameras.yml as config source of truth"
   - `loadConfig(yamlText: string): AppConfig` — throws `Error` with a descriptive message on invalid input.
   - `renderGo2rtc(config: AppConfig): string` and `renderClientCameras(config: AppConfig): string`.
   - Types: `CameraConfig { id: string; name: string; url: string; enabled: boolean; retentionDays: number }`, `AppConfig { webrtcCandidate: string; cameras: CameraConfig[] }`.
-  - Generated file `client/public/cameras.json`: array of `{ id: string; name: string }` for enabled cameras only (consumed by Task 5).
+  - Generated file `web-app/public/cameras.json`: array of `{ id: string; name: string }` for enabled cameras only (consumed by Task 5).
   - Generated file `go2rtc/go2rtc.yaml` (consumed by Task 3).
 
 - [x] **Step 1: Write failing tests for `loadConfig`**
 
-`tools/__tests__/config.test.ts`:
+`cameras-setup/__tests__/config.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest"
@@ -241,10 +257,10 @@ describe("loadConfig", () => {
 
 - [x] **Step 2: Run tests to verify they fail**
 
-Run: `npx vitest run tools/__tests__/config.test.ts`
+Run: `npx vitest run cameras-setup/__tests__/config.test.ts`
 Expected: FAIL — cannot resolve `../config`.
 
-- [x] **Step 3: Implement `tools/config.ts`**
+- [x] **Step 3: Implement `cameras-setup/config.ts`**
 
 ```ts
 import { parse } from "yaml"
@@ -304,19 +320,19 @@ export function loadConfig(yamlText: string): AppConfig {
 
 - [x] **Step 4: Run tests to verify they pass**
 
-Run: `npx vitest run tools/__tests__/config.test.ts`
+Run: `npx vitest run cameras-setup/__tests__/config.test.ts`
 Expected: PASS (5 tests).
 
 - [x] **Step 5: Commit**
 
 ```bash
-git add tools/config.ts tools/__tests__/config.test.ts
+git add cameras-setup/config.ts cameras-setup/__tests__/config.test.ts
 git commit -m "feat: load and validate cameras.yml"
 ```
 
 - [x] **Step 6: Write failing tests for the renderers**
 
-`tools/__tests__/render.test.ts`:
+`cameras-setup/__tests__/render.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest"
@@ -355,16 +371,16 @@ describe("renderClientCameras", () => {
 
 - [x] **Step 7: Run tests to verify they fail**
 
-Run: `npx vitest run tools/__tests__/render.test.ts`
+Run: `npx vitest run cameras-setup/__tests__/render.test.ts`
 Expected: FAIL — cannot resolve `../render`.
 
-- [x] **Step 8: Implement `tools/render.ts`**
+- [x] **Step 8: Implement `cameras-setup/render.ts`**
 
 ```ts
 import { stringify } from "yaml"
 import type { AppConfig } from "./config"
 
-const HEADER = "# GENERATED by `npm run generate` from cameras.yml — do not edit by hand.\n"
+const HEADER = "# GENERATED by `npm run setup` from cameras.yml — do not edit by hand.\n"
 
 export function renderGo2rtc(config: AppConfig): string {
   const streams: Record<string, string[]> = {}
@@ -390,10 +406,10 @@ export function renderClientCameras(config: AppConfig): string {
 
 - [x] **Step 9: Run tests to verify they pass**
 
-Run: `npx vitest run tools/__tests__/render.test.ts`
+Run: `npx vitest run cameras-setup/__tests__/render.test.ts`
 Expected: PASS (2 tests).
 
-- [x] **Step 10: Implement the CLI entry `tools/generate.ts`**
+- [x] **Step 10: Implement the CLI entry `cameras-setup/index.ts`**
 
 ```ts
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -409,7 +425,7 @@ const go2rtcPath = join(root, "go2rtc", "go2rtc.yaml")
 mkdirSync(dirname(go2rtcPath), { recursive: true })
 writeFileSync(go2rtcPath, renderGo2rtc(config))
 
-const camerasJsonPath = join(root, "client", "public", "cameras.json")
+const camerasJsonPath = join(root, "web-app", "public", "cameras.json")
 mkdirSync(dirname(camerasJsonPath), { recursive: true })
 writeFileSync(camerasJsonPath, renderClientCameras(config))
 
@@ -419,14 +435,14 @@ console.log(`wrote ${camerasJsonPath}`)
 
 - [x] **Step 11: Run the generator and inspect output**
 
-Run: `npm run generate && cat go2rtc/go2rtc.yaml client/public/cameras.json`
+Run: `npm run setup && cat go2rtc/go2rtc.yaml web-app/public/cameras.json`
 Expected: both files written; go2rtc.yaml contains `${CAM1_RTSP_URL}` placeholder (NOT a real URL); cameras.json is `[{ "id": "cam1", "name": "Front Door" }]`.
 
 - [x] **Step 12: Commit**
 
 ```bash
-git add tools/ go2rtc/go2rtc.yaml client/public/cameras.json
-git commit -m "feat: generate go2rtc config and client camera list from cameras.yml"
+git add cameras-setup/ go2rtc/go2rtc.yaml web-app/public/cameras.json
+git commit -m "feat: generate go2rtc config and web-app camera list from cameras.yml"
 ```
 
 ---
@@ -438,7 +454,7 @@ git commit -m "feat: generate go2rtc config and client camera list from cameras.
 
 **Interfaces:**
 - Consumes: `go2rtc/go2rtc.yaml` from Task 2; `.env` from Task 1.
-- Produces: go2rtc reachable at `http://localhost:1984` (API + built-in UI), RTSP restream at `rtsp://localhost:8554/cam1`, WebRTC on port 8555. Task 8 adds the `client` service to this same file.
+- Produces: go2rtc reachable at `http://localhost:1984` (API + built-in UI), RTSP restream at `rtsp://localhost:8554/cam1`, WebRTC on port 8555. Task 8 adds the `web-app` service to this same file.
 
 - [x] **Step 1: Create `docker-compose.yml`**
 
@@ -488,16 +504,16 @@ git commit -m "feat: run go2rtc via docker-compose with generated config"
 ### Task 4: Client scaffold (Vite + React + TS + Tailwind + vitest) with app shell
 
 **Files:**
-- Create: `client/package.json`, `client/vite.config.ts`, `client/tsconfig.json`, `client/index.html`, `client/src/main.tsx`, `client/src/index.css`, `client/src/App.tsx`, `client/src/components/TabBar.tsx`
+- Create: `web-app/package.json`, `web-app/vite.config.ts`, `web-app/tsconfig.json`, `web-app/index.html`, `web-app/src/main.tsx`, `web-app/src/index.css`, `web-app/src/App.tsx`, `web-app/src/components/TabBar.tsx`
 
 **Interfaces:**
 - Produces: running Vite dev server on :5173 with `/go2rtc` proxied (http + ws) to go2rtc; `<App>` shell with two views — `live` (filled in Task 7) and `timeline` (placeholder until Phase 3); `TabBar` with `view`/`onChange` props as defined below.
 
-- [x] **Step 1: Create `client/package.json`**
+- [x] **Step 1: Create `web-app/package.json`**
 
 ```json
 {
-  "name": "camera-dashboard-client",
+  "name": "camera-dashboard-web-app",
   "private": true,
   "type": "module",
   "scripts": {
@@ -524,7 +540,7 @@ git commit -m "feat: run go2rtc via docker-compose with generated config"
 }
 ```
 
-- [x] **Step 2: Create `client/vite.config.ts`**
+- [x] **Step 2: Create `web-app/vite.config.ts`**
 
 ```ts
 import tailwindcss from "@tailwindcss/vite"
@@ -554,7 +570,7 @@ export default defineConfig({
 })
 ```
 
-- [x] **Step 3: Create `client/tsconfig.json`**
+- [x] **Step 3: Create `web-app/tsconfig.json`**
 
 ```json
 {
@@ -572,7 +588,7 @@ export default defineConfig({
 }
 ```
 
-- [x] **Step 4: Create `client/index.html`**
+- [x] **Step 4: Create `web-app/index.html`**
 
 ```html
 <!doctype html>
@@ -589,7 +605,7 @@ export default defineConfig({
 </html>
 ```
 
-- [x] **Step 5: Create `client/src/index.css`**
+- [x] **Step 5: Create `web-app/src/index.css`**
 
 ```css
 @import "tailwindcss";
@@ -602,7 +618,7 @@ body,
 }
 ```
 
-- [x] **Step 6: Create `client/src/main.tsx`**
+- [x] **Step 6: Create `web-app/src/main.tsx`**
 
 ```tsx
 import { StrictMode } from "react"
@@ -617,7 +633,7 @@ createRoot(document.getElementById("root")!).render(
 )
 ```
 
-- [x] **Step 7: Create `client/src/components/TabBar.tsx`**
+- [x] **Step 7: Create `web-app/src/components/TabBar.tsx`**
 
 ```tsx
 export type View = "live" | "timeline"
@@ -655,7 +671,7 @@ export default function TabBar({ view, onChange }: TabBarProps) {
 }
 ```
 
-- [x] **Step 8: Create `client/src/App.tsx`**
+- [x] **Step 8: Create `web-app/src/App.tsx`**
 
 ```tsx
 import { useState } from "react"
@@ -681,14 +697,14 @@ export default function App() {
 
 - [x] **Step 9: Install and verify dev server**
 
-Run: `npm install` then `npm run dev` (both in `client/`).
+Run: `npm install` then `npm run dev` (both in `web-app/`).
 Open `http://localhost:5173` — expected: dark shell, "Live/Timeline" tabs at the bottom on a narrow window and at the top when the window is ≥768px wide. Verify by resizing devtools.
 
 - [x] **Step 10: Commit**
 
 ```bash
-git add client/
-git commit -m "feat: scaffold React client with Tailwind and mobile-first tab shell"
+git add web-app/
+git commit -m "feat: scaffold React web-app with Tailwind and mobile-first tab shell"
 ```
 
 ---
@@ -696,14 +712,14 @@ git commit -m "feat: scaffold React client with Tailwind and mobile-first tab sh
 ### Task 5: Camera list loading (types + hook)
 
 **Files:**
-- Create: `client/src/types.ts`, `client/src/hooks/useCameras.ts`
-- Test: `client/src/hooks/__tests__/useCameras.test.ts`
+- Create: `web-app/src/types.ts`, `web-app/src/hooks/useCameras.ts`
+- Test: `web-app/src/hooks/__tests__/useCameras.test.ts`
 
 **Interfaces:**
-- Consumes: `client/public/cameras.json` (`[{ id, name }]`) generated in Task 2, served by Vite at `/cameras.json`.
+- Consumes: `web-app/public/cameras.json` (`[{ id, name }]`) generated in Task 2, served by Vite at `/cameras.json`.
 - Produces: `Camera { id: string; name: string }` type and `useCameras(): { cameras: Camera[]; error: string | null; loading: boolean }` — consumed by `LiveGrid` in Task 7.
 
-- [x] **Step 1: Create `client/src/types.ts`**
+- [x] **Step 1: Create `web-app/src/types.ts`**
 
 ```ts
 export interface Camera {
@@ -714,7 +730,7 @@ export interface Camera {
 
 - [x] **Step 2: Write the failing hook test**
 
-`client/src/hooks/__tests__/useCameras.test.ts`:
+`web-app/src/hooks/__tests__/useCameras.test.ts`:
 
 ```ts
 import { renderHook, waitFor } from "@testing-library/react"
@@ -753,10 +769,10 @@ describe("useCameras", () => {
 
 - [x] **Step 3: Run test to verify it fails**
 
-Run (in `client/`): `npx vitest run src/hooks/__tests__/useCameras.test.ts`
+Run (in `web-app/`): `npx vitest run src/hooks/__tests__/useCameras.test.ts`
 Expected: FAIL — cannot resolve `../useCameras`.
 
-- [x] **Step 4: Implement `client/src/hooks/useCameras.ts`**
+- [x] **Step 4: Implement `web-app/src/hooks/useCameras.ts`**
 
 ```ts
 import { useEffect, useState } from "react"
@@ -794,13 +810,13 @@ export function useCameras() {
 
 - [x] **Step 5: Run test to verify it passes**
 
-Run (in `client/`): `npx vitest run src/hooks/__tests__/useCameras.test.ts`
+Run (in `web-app/`): `npx vitest run src/hooks/__tests__/useCameras.test.ts`
 Expected: PASS (2 tests).
 
 - [x] **Step 6: Commit**
 
 ```bash
-git add client/src/types.ts client/src/hooks/
+git add web-app/src/types.ts web-app/src/hooks/
 git commit -m "feat: load camera list from generated cameras.json"
 ```
 
@@ -809,13 +825,13 @@ git commit -m "feat: load camera list from generated cameras.json"
 ### Task 6: VideoStream wrapper around go2rtc's web component
 
 **Files:**
-- Create: `client/src/lib/go2rtc.ts`, `client/src/components/VideoStream.tsx`
+- Create: `web-app/src/lib/go2rtc.ts`, `web-app/src/components/VideoStream.tsx`
 
 **Interfaces:**
 - Consumes: go2rtc proxied at `/go2rtc` (Vite proxy from Task 4); go2rtc serves its `video-stream` custom element at `/go2rtc/video-stream.js`.
 - Produces: `<VideoStream cameraId="cam1" paused={false} className="..." />` — consumed by `CameraTile` in Task 7. Also `posterUrl(cameraId: string): string` for still-frame posters.
 
-- [x] **Step 1: Implement `client/src/lib/go2rtc.ts`**
+- [x] **Step 1: Implement `web-app/src/lib/go2rtc.ts`**
 
 ```ts
 export const GO2RTC_BASE = "/go2rtc"
@@ -850,7 +866,7 @@ export function loadVideoStreamElement(): Promise<void> {
 }
 ```
 
-- [x] **Step 2: Implement `client/src/components/VideoStream.tsx`**
+- [x] **Step 2: Implement `web-app/src/components/VideoStream.tsx`**
 
 ```tsx
 import { useEffect, useRef, useState } from "react"
@@ -918,13 +934,13 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
 
 - [x] **Step 3: Verify manually against live go2rtc**
 
-With `docker compose up -d go2rtc` running and `npm run dev` in `client/`, temporarily change `App.tsx`'s live branch to `<VideoStream cameraId="cam1" className="aspect-video" />`, open `http://localhost:5173`.
-Expected: live video renders inside the app shell. Revert the temporary change afterwards (`git checkout client/src/App.tsx` if needed — Task 7 wires it properly).
+With `docker compose up -d go2rtc` running and `npm run dev` in `web-app/`, temporarily change `App.tsx`'s live branch to `<VideoStream cameraId="cam1" className="aspect-video" />`, open `http://localhost:5173`.
+Expected: live video renders inside the app shell. Revert the temporary change afterwards (`git checkout web-app/src/App.tsx` if needed — Task 7 wires it properly).
 
 - [x] **Step 4: Commit**
 
 ```bash
-git add client/src/lib/go2rtc.ts client/src/components/VideoStream.tsx
+git add web-app/src/lib/go2rtc.ts web-app/src/components/VideoStream.tsx
 git commit -m "feat: wrap go2rtc video-stream element in a React component"
 ```
 
@@ -933,9 +949,9 @@ git commit -m "feat: wrap go2rtc video-stream element in a React component"
 ### Task 7: CameraTile + LiveGrid (responsive, pause offscreen, fullscreen)
 
 **Files:**
-- Create: `client/src/components/CameraTile.tsx`, `client/src/components/LiveGrid.tsx`
-- Modify: `client/src/App.tsx` (replace the live placeholder with `<LiveGrid />`)
-- Test: `client/src/components/__tests__/LiveGrid.test.tsx`
+- Create: `web-app/src/components/CameraTile.tsx`, `web-app/src/components/LiveGrid.tsx`
+- Modify: `web-app/src/App.tsx` (replace the live placeholder with `<LiveGrid />`)
+- Test: `web-app/src/components/__tests__/LiveGrid.test.tsx`
 
 **Interfaces:**
 - Consumes: `useCameras()` from Task 5; `VideoStream` from Task 6.
@@ -943,7 +959,7 @@ git commit -m "feat: wrap go2rtc video-stream element in a React component"
 
 - [x] **Step 1: Write the failing grid test**
 
-`client/src/components/__tests__/LiveGrid.test.tsx`:
+`web-app/src/components/__tests__/LiveGrid.test.tsx`:
 
 ```tsx
 import { render, screen, waitFor } from "@testing-library/react"
@@ -1003,10 +1019,10 @@ describe("LiveGrid", () => {
 
 - [x] **Step 2: Run test to verify it fails**
 
-Run (in `client/`): `npx vitest run src/components/__tests__/LiveGrid.test.tsx`
+Run (in `web-app/`): `npx vitest run src/components/__tests__/LiveGrid.test.tsx`
 Expected: FAIL — cannot resolve `../LiveGrid`.
 
-- [x] **Step 3: Implement `client/src/components/CameraTile.tsx`**
+- [x] **Step 3: Implement `web-app/src/components/CameraTile.tsx`**
 
 ```tsx
 import { useEffect, useRef, useState } from "react"
@@ -1055,7 +1071,7 @@ export default function CameraTile({ camera }: CameraTileProps) {
 }
 ```
 
-- [x] **Step 4: Implement `client/src/components/LiveGrid.tsx`**
+- [x] **Step 4: Implement `web-app/src/components/LiveGrid.tsx`**
 
 ```tsx
 import { useCameras } from "../hooks/useCameras"
@@ -1078,7 +1094,7 @@ export default function LiveGrid() {
 }
 ```
 
-- [x] **Step 5: Wire into `client/src/App.tsx`**
+- [x] **Step 5: Wire into `web-app/src/App.tsx`**
 
 Replace the live placeholder line:
 
@@ -1105,9 +1121,9 @@ export default function App() {
 }
 ```
 
-- [x] **Step 6: Run all client tests**
+- [x] **Step 6: Run all web-app tests**
 
-Run (in `client/`): `npx vitest run`
+Run (in `web-app/`): `npx vitest run`
 Expected: PASS — LiveGrid tests (2) + useCameras tests (2).
 
 - [x] **Step 7: Verify live in browsers (manual)**
@@ -1119,40 +1135,40 @@ With go2rtc up and `npm run dev`:
 - [x] **Step 8: Commit**
 
 ```bash
-git add client/src/components/ client/src/App.tsx
+git add web-app/src/components/ web-app/src/App.tsx
 git commit -m "feat: live camera grid with offscreen pause and fullscreen tiles"
 ```
 
 ---
 
-### Task 8: Client dev container in docker-compose + Phase 1 smoke test
+### Task 8: web-app dev service in docker-compose + Phase 1 smoke test
 
 **Files:**
-- Modify: `docker-compose.yml` (add `client` service)
+- Modify: `docker-compose.yml` (add `web-app` service)
 
 **Interfaces:**
 - Consumes: everything above.
-- Produces: `docker compose up` brings up the whole Phase 1 stack; client on `http://localhost:5173`. (Prod nginx build is deferred to Phase 3, when there's an API to proxy — YAGNI until then.)
+- Produces: `docker compose up` brings up the whole Phase 1 stack; web-app on `http://localhost:5173`. (Prod nginx build is deferred to Phase 3, when there's an API to proxy — YAGNI until then.)
 
-- [x] **Step 1: Add the `client` service to `docker-compose.yml`**
+- [x] **Step 1: Add the `web-app` service to `docker-compose.yml`**
 
 ```yaml
-  client:
-    image: node:22-alpine
+  web-app:
+    image: node:24-alpine
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     environment:
       GO2RTC_URL: http://go2rtc:1984
     volumes:
-      - ./client:/app
-      - client_node_modules:/app/node_modules
+      - ./web-app:/app
+      - web_app_node_modules:/app/node_modules
     ports:
       - "5173:5173"
     depends_on:
       - go2rtc
 
 volumes:
-  client_node_modules:
+  web_app_node_modules:
 ```
 
 (The named volume keeps Linux-built `node_modules` from clobbering the Mac-built ones in the bind mount.)
@@ -1162,20 +1178,20 @@ volumes:
 Run: `docker compose up -d && docker compose ps`
 Expected: both services `running`. Then open `http://localhost:5173`:
 - Live grid shows cam1 playing.
-- `docker compose logs client | tail -5` shows Vite ready, no proxy errors.
+- `docker compose logs web-app | tail -5` shows Vite ready, no proxy errors.
 
 - [x] **Step 3: Phase 1 acceptance checklist (manual, from spec success criteria)**
 
 - [x] Live view on desktop Chrome with ~sub-second latency (wave at the camera).
 - [x] Live view on iPhone Safari over LAN.
-- [x] `cameras.yml` edit → `npm run generate` → `docker compose restart go2rtc` picks up a renamed camera without touching any other file.
+- [x] `cameras.yml` edit → `npm run setup` → `docker compose restart go2rtc` picks up a renamed camera without touching any other file.
 - [x] No credentials appear in any committed file: `git grep -I "rtsps://" -- ':!*.example' ':!docs'` returns only `${...}` placeholders or nothing.
 
 - [x] **Step 4: Commit**
 
 ```bash
 git add docker-compose.yml
-git commit -m "feat: run client dev server via docker-compose"
+git commit -m "feat: run web-app dev server via docker-compose"
 ```
 
 ---

@@ -11,6 +11,15 @@ services:
       - "8555:8555/tcp"   # WebRTC
       - "8555:8555/udp"   # WebRTC
 
+  cameras-setup:
+    image: node:24-alpine
+    working_dir: /workspace/cameras-setup
+    env_file: .env
+    volumes:
+      - .:/workspace
+      - cameras_setup_node_modules:/workspace/cameras-setup/node_modules
+    command: sh -c "npm install && npm run setup"
+
   web-app:
     image: node:24-alpine
     restart: unless-stopped
@@ -27,4 +36,5 @@ services:
       - go2rtc
 
 volumes:
+  cameras_setup_node_modules:
   web_app_node_modules:

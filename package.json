@@ -3,14 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "sync-cameras": "tsx tools/sync.ts && tsx tools/generate.ts",
-    "test": "vitest run"
-  },
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "tsx": "^4.19.0",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0",
-    "yaml": "^2.5.0"
+    "setup": "docker compose run --rm cameras-setup npm run setup",
+    "test": "docker compose run --rm cameras-setup npm test && docker compose run --rm server npm test && docker compose run --rm web-app npm test",
+    "dev": "docker compose up"
   }
 }
