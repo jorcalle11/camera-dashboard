@@ -20,7 +20,7 @@ export default function TileOverlay({ camera, state = "stopped", onSnapshot }: T
             e.stopPropagation()
             onSnapshot()
           }}
-          className="pointer-events-auto rounded bg-white/10 p-1.5 hover:bg-white/20"
+          className="pointer-events-auto cursor-pointer rounded bg-white/10 p-1.5 hover:bg-white/20"
           aria-label="Take snapshot"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
