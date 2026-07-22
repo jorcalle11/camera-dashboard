@@ -7,7 +7,8 @@ export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
   return [
     "-rtsp_transport", "tcp",
     "-i", getRtspUrl(cameraId),
-    "-c", "copy",
+    "-c:v", "copy",
+    "-an",
     "-f", "segment",
     "-segment_time", "60",
     "-segment_atclocktime", "1",
@@ -17,8 +18,17 @@ export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
   ]
 }
 
+function preCreateSegmentDirs(outputDir: string): void {
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  mkdirSync(join(outputDir, today), { recursive: true })
+  mkdirSync(join(outputDir, tomorrow), { recursive: true })
+}
+
 export function spawnFfmpeg(cameraId: string, outputDir: string): { process: ChildProcess; logPath: string } {
   mkdirSync(outputDir, { recursive: true })
+  preCreateSegmentDirs(outputDir)
   const logDir = dirname(outputDir)
   mkdirSync(logDir, { recursive: true })
   const logPath = join(logDir, `${cameraId}.log`)

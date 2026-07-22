@@ -9,8 +9,9 @@ describe("buildFfmpegArgs", () => {
   it("outputs to segmented path", () => {
     const args = buildFfmpegArgs("cam1", "/recordings/cam1")
     expect(args).toContain("rtsp://go2rtc:8554/cam1")
-    expect(args).toContain("-c")
+    expect(args).toContain("-c:v")
     expect(args).toContain("copy")
+    expect(args).toContain("-an")
     expect(args).toContain("/recordings/cam1/%Y-%m-%d/%H-%M-%S.mp4")
   })
 })
