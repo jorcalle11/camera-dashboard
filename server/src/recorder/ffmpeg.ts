@@ -1,19 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { createWriteStream, mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
-
-const GO2RTC_URL = process.env.GO2RTC_URL ?? "http://go2rtc:1984"
-
-function getRtspUrl(cameraId: string): string {
-  try {
-    const url = new URL(GO2RTC_URL)
-    const host = url.hostname
-    const port = url.port || (url.protocol === "https:" ? "443" : "80")
-    return `rtsp://${host}:8554/${cameraId}`
-  } catch {
-    return `rtsp://go2rtc:8554/${cameraId}`
-  }
-}
+import { getRtspUrl } from "../lib/go2rtc"
 
 export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
   return [
