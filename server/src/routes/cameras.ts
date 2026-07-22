@@ -1,15 +1,16 @@
 import { Router } from "express"
 import type Database from "better-sqlite3"
+import { env, getRtspUrl } from "../env"
 import type { CameraStatus } from "../recorder/RecorderManager"
 
 export interface CameraRouteDeps {
   db: Database.Database
-  go2rtcUrl: string
-  recorderStatus: () => Record<string, CameraStatus>
+  go2rtcUrl?: string
+  recorderStatus?: () => Record<string, CameraStatus>
 }
 
 export function camerasRouter(deps: CameraRouteDeps): Router {
-  const { db, go2rtcUrl, recorderStatus } = deps
+  const { db, go2rtcUrl = env.GO2RTC_URL, recorderStatus = (): Record<string, CameraStatus> => ({}) } = deps
   const router = Router({ mergeParams: true })
 
   router.get("/", (_req, res) => {
@@ -30,7 +31,7 @@ export function camerasRouter(deps: CameraRouteDeps): Router {
   })
 
   router.get("/:id/latest.jpg", async (req, res) => {
-    const cameraId = req.params.id
+    const cameraId = (req.params as { id: string }).id
     const camera = db.prepare("SELECT id FROM cameras WHERE id=?").get(cameraId)
     if (!camera) return res.status(404).end()
     try {

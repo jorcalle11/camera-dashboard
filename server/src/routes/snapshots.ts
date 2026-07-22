@@ -4,11 +4,11 @@ import { stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Router } from "express"
 import type Database from "better-sqlite3"
-import { getRtspUrl } from "../lib/go2rtc"
+import { env, getRtspUrl } from "../env"
 
 export interface SnapshotDeps {
   db: Database.Database
-  recordingsRoot: string
+  recordingsRoot?: string
   snapshotCapture?: (cameraId: string, outPath: string) => Promise<string>
 }
 
@@ -30,7 +30,7 @@ function defaultCapture(cameraId: string, outPath: string): Promise<string> {
 }
 
 export function snapshotsRouter(deps: SnapshotDeps): Router {
-  const { db, recordingsRoot, snapshotCapture = defaultCapture } = deps
+  const { db, recordingsRoot = env.RECORDINGS_PATH, snapshotCapture = defaultCapture } = deps
   const router = Router({ mergeParams: true })
 
   router.post("/", async (req, res) => {

@@ -1,17 +1,18 @@
 import { Router } from "express"
 import type Database from "better-sqlite3"
 import { statfsSync, statSync } from "node:fs"
+import { env } from "../env"
 import type { CameraStatus } from "../recorder/RecorderManager"
 
 export interface SystemDeps {
   db: Database.Database
-  dbPath: string
-  recordingsRoot: string
-  recorderStatus: () => Record<string, CameraStatus>
+  dbPath?: string
+  recordingsRoot?: string
+  recorderStatus?: () => Record<string, CameraStatus>
 }
 
 export function systemRouter(deps: SystemDeps): Router {
-  const { db, dbPath, recordingsRoot, recorderStatus } = deps
+  const { db, dbPath = env.DB_PATH, recordingsRoot = env.RECORDINGS_PATH, recorderStatus = (): Record<string, CameraStatus> => ({}) } = deps
   const router = Router({ mergeParams: true })
 
   router.get("/status", (_req, res) => {
