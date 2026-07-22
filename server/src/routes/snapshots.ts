@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { mkdirSync } from "node:fs"
+import { stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Router } from "express"
 import type Database from "better-sqlite3"
@@ -43,7 +44,7 @@ export function snapshotsRouter(deps: SnapshotDeps): Router {
     const outPath = join(recordingsRoot, relativePath)
     try {
       await snapshotCapture(cameraId, outPath)
-      const stats = await import("node:fs/promises").then((fs) => fs.stat(outPath))
+      const stats = await stat(outPath)
       db.prepare("INSERT INTO snapshots (camera_id, ts, path, size_bytes) VALUES (?, ?, ?, ?)").run(
         cameraId, ts, relativePath, stats.size,
       )
