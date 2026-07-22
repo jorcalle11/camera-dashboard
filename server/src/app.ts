@@ -1,6 +1,7 @@
 import express from "express"
 import type Database from "better-sqlite3"
 import { camerasRouter } from "./routes/cameras"
+import { healthRouter } from "./routes/health"
 import { recordingsRouter } from "./routes/recordings"
 import { snapshotsRouter } from "./routes/snapshots"
 import { systemRouter } from "./routes/system"
@@ -23,6 +24,8 @@ export function createApp(deps: AppDeps): express.Express {
   app.use("/api", systemRouter({ db: deps.db, dbPath: deps.dbPath, recordingsRoot: deps.recordingsRoot, recorderStatus: deps.recorderStatus }))
   app.use("/api", snapshotsRouter({ db: deps.db, recordingsRoot: deps.recordingsRoot }))
   app.use("/recordings", express.static(deps.recordingsRoot))
+
+  app.use("/", healthRouter({ db: deps.db }))
 
   return app
 }

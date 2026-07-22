@@ -20,7 +20,7 @@ describe("snapshots routes", () => {
   })
 
   it("lists snapshots", async () => {
-    const app = createApp({ db, recordingsRoot: dir, go2rtcUrl: "http://go2rtc:1984", recorderStatus: vi.fn().mockReturnValue({}) })
+    const app = createApp({ db, dbPath: join(dir, "nvr.db"), recordingsRoot: dir, go2rtcUrl: "http://go2rtc:1984", recorderStatus: vi.fn().mockReturnValue({}) })
     await request(app).get("/api/snapshots?camera=cam1").expect(200)
   })
 })

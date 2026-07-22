@@ -28,10 +28,6 @@ services:
     env_file: .env
     environment:
       GO2RTC_URL: http://go2rtc:1984
-      RECORDINGS_PATH: /recordings
-      DATA_PATH: /data
-      CAMERAS_YML_PATH: /workspace/cameras.yml
-      DISK_FREE_THRESHOLD_GB: ${DISK_FREE_THRESHOLD_GB:-10}
     volumes:
       - ./server:/app
       - server_node_modules:/app/node_modules
@@ -42,6 +38,12 @@ services:
       - "3000:3000"
     depends_on:
       - go2rtc
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   web-app:
     image: node:24-alpine
