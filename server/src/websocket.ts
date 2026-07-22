@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from "node:http"
 import { WebSocketServer } from "ws"
+import { logger } from "./logger"
 import type { RecorderManager } from "./recorder/RecorderManager"
 
 export interface DiskInfo {
@@ -28,6 +29,7 @@ export function createStatusServer(
 
   recorderManager.on("status", broadcast)
   wss.on("connection", (ws) => {
+    logger.debug({ clients: wss.clients.size }, "websocket client connected")
     ws.send(JSON.stringify({ type: "status", cameras: recorderManager.status(), disk: getDiskInfo() }))
   })
 

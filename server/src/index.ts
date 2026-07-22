@@ -6,6 +6,7 @@ import { getDb, migrate } from "./db"
 import { env } from "./env"
 import { spawnFfmpeg } from "./recorder/ffmpeg"
 import { indexSegments, watchSegments } from "./recorder/indexer"
+import { logger } from "./logger"
 import { RecorderManager } from "./recorder/RecorderManager"
 import { createStatusServer } from "./websocket"
 
@@ -43,11 +44,11 @@ createStatusServer(server, recorder, () => {
 })
 
 server.listen(env.PORT, "0.0.0.0", () => {
-  console.log(`server listening on port ${env.PORT}`)
+  logger.info(`server listening on port ${env.PORT}`)
 })
 
 function shutdown() {
-  console.log("shutting down...")
+  logger.info("shutting down...")
   recorder.stopAll()
   watcher.close().catch(() => {})
   server.close(() => process.exit(0))
