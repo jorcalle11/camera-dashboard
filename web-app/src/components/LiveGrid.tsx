@@ -1,7 +1,12 @@
+import type { RecorderStatus } from "../hooks/useRecorderStatus"
 import { useCameras } from "../hooks/useCameras"
 import CameraTile from "./CameraTile"
 
-export default function LiveGrid() {
+interface LiveGridProps {
+  status?: Record<string, RecorderStatus>
+}
+
+export default function LiveGrid({ status = {} }: LiveGridProps) {
   const { cameras, error, loading } = useCameras()
 
   if (loading) return <p className="p-4 text-neutral-400">Loading cameras…</p>
@@ -11,7 +16,7 @@ export default function LiveGrid() {
   return (
     <div className="grid grid-cols-1 gap-2 p-2 md:grid-cols-[repeat(auto-fit,minmax(400px,1fr))] md:gap-3 md:p-3">
       {cameras.map((camera) => (
-        <CameraTile key={camera.id} camera={camera} />
+        <CameraTile key={camera.id} camera={camera} status={status[camera.id]} />
       ))}
     </div>
   )

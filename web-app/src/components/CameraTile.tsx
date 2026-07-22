@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react"
 import type { Camera } from "../types"
+import type { RecorderStatus } from "../hooks/useRecorderStatus"
 import VideoStream from "./VideoStream"
+import TileOverlay from "./TileOverlay"
 
 interface CameraTileProps {
   camera: Camera
+  status?: RecorderStatus
 }
 
-export default function CameraTile({ camera }: CameraTileProps) {
+export default function CameraTile({ camera, status }: CameraTileProps) {
   const tileRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
+  const state = status?.state ?? "stopped"
 
-  // Pause streams for tiles scrolled out of view (bandwidth/battery on phones).
   useEffect(() => {
     const tile = tileRef.current
     if (!tile) return
@@ -29,6 +32,10 @@ export default function CameraTile({ camera }: CameraTileProps) {
     else void tile.requestFullscreen()
   }
 
+  const takeSnapshot = async () => {
+    await fetch(`/api/cameras/${camera.id}/snapshots`, { method: "POST" })
+  }
+
   return (
     <div
       ref={tileRef}
@@ -36,9 +43,7 @@ export default function CameraTile({ camera }: CameraTileProps) {
       className="relative aspect-video overflow-hidden rounded-lg bg-black"
     >
       <VideoStream cameraId={camera.id} paused={!visible} className="h-full w-full" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/70 to-transparent p-2">
-        <span className="text-sm font-medium">{camera.name}</span>
-      </div>
+      <TileOverlay camera={camera} state={state} onSnapshot={takeSnapshot} />
     </div>
   )
 }

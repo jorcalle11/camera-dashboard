@@ -6,6 +6,7 @@ import { defineConfig } from "vitest/config"
 // In the dev container go2rtc is reachable as http://go2rtc:1984;
 // when running Vite directly on the host it's http://localhost:1984.
 const go2rtcTarget = process.env.GO2RTC_URL ?? "http://localhost:1984"
+const serverTarget = process.env.SERVER_URL ?? "http://localhost:3000"
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -20,6 +21,15 @@ export default defineConfig({
         // own host (403). changeOrigin only rewrites Host, so also rewrite
         // the Origin header on proxied requests.
         headers: { Origin: go2rtcTarget },
+      },
+      "/api": {
+        target: serverTarget,
+        changeOrigin: true,
+        ws: true,
+      },
+      "/recordings": {
+        target: serverTarget,
+        changeOrigin: true,
       },
     },
   },
