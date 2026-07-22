@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { ToastProvider } from "../../hooks/useToast.tsx"
 import LiveGrid from "../LiveGrid"
 
 // VideoStream needs a live go2rtc; stub it out for component tests.
@@ -38,7 +39,11 @@ describe("LiveGrid", () => {
       { id: "cam1", name: "Front Door" },
       { id: "cam2", name: "Garage" },
     ])
-    render(<LiveGrid />)
+    render(
+      <ToastProvider>
+        <LiveGrid />
+      </ToastProvider>,
+    )
     await waitFor(() => expect(screen.getByText("Front Door")).toBeTruthy())
     expect(screen.getByText("Garage")).toBeTruthy()
     expect(screen.getByTestId("stream-cam1")).toBeTruthy()
@@ -47,7 +52,11 @@ describe("LiveGrid", () => {
 
   it("shows an error state when cameras fail to load", async () => {
     mockCameras("boom", 500)
-    render(<LiveGrid />)
+    render(
+      <ToastProvider>
+        <LiveGrid />
+      </ToastProvider>,
+    )
     await waitFor(() => expect(screen.getByText(/HTTP 500/)).toBeTruthy())
   })
 })

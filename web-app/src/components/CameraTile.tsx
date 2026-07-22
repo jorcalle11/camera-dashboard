@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { Camera } from "../types"
 import type { RecorderStatus } from "../hooks/useRecorderStatus"
+import { useToast } from "../hooks/useToast.tsx"
 import VideoStream from "./VideoStream"
 import TileOverlay from "./TileOverlay"
 
@@ -12,6 +13,7 @@ interface CameraTileProps {
 export default function CameraTile({ camera, status }: CameraTileProps) {
   const tileRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
+  const { showToast } = useToast()
   const state = status?.state ?? "stopped"
 
   useEffect(() => {
@@ -33,7 +35,13 @@ export default function CameraTile({ camera, status }: CameraTileProps) {
   }
 
   const takeSnapshot = async () => {
-    await fetch(`/api/cameras/${camera.id}/snapshots`, { method: "POST" })
+    try {
+      const res = await fetch(`/api/cameras/${camera.id}/snapshots`, { method: "POST" })
+      if (!res.ok) throw new Error(`Snapshot failed: ${res.status}`)
+      showToast("Snapshot saved", "success")
+    } catch (err) {
+      showToast((err as Error).message, "error")
+    }
   }
 
   return (
