@@ -10,9 +10,9 @@ export interface CameraRouteDeps {
 
 export function camerasRouter(deps: CameraRouteDeps): Router {
   const { db, go2rtcUrl, recorderStatus } = deps
-  const router = Router()
+  const router = Router({ mergeParams: true })
 
-  router.get("/cameras", (_req, res) => {
+  router.get("/", (_req, res) => {
     const status = recorderStatus()
     const rows = db.prepare("SELECT id, name, enabled FROM cameras ORDER BY id").all() as { id: string; name: string; enabled: number }[]
     const out = rows.map((row) => {
@@ -29,7 +29,7 @@ export function camerasRouter(deps: CameraRouteDeps): Router {
     res.json(out)
   })
 
-  router.get("/cameras/:id/latest.jpg", async (req, res) => {
+  router.get("/:id/latest.jpg", async (req, res) => {
     const cameraId = req.params.id
     const camera = db.prepare("SELECT id FROM cameras WHERE id=?").get(cameraId)
     if (!camera) return res.status(404).end()

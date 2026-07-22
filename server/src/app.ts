@@ -19,13 +19,12 @@ export function createApp(deps: AppDeps): express.Express {
   const app = express()
   app.use(express.json())
 
-  app.use("/api", camerasRouter({ db: deps.db, go2rtcUrl: deps.go2rtcUrl, recorderStatus: deps.recorderStatus }))
-  app.use("/api", recordingsRouter({ db: deps.db }))
-  app.use("/api", systemRouter({ db: deps.db, dbPath: deps.dbPath, recordingsRoot: deps.recordingsRoot, recorderStatus: deps.recorderStatus }))
-  app.use("/api", snapshotsRouter({ db: deps.db, recordingsRoot: deps.recordingsRoot }))
-  app.use("/recordings", express.static(deps.recordingsRoot))
-
-  app.use("/", healthRouter({ db: deps.db }))
+  app.use("/api", healthRouter({ db: deps.db }))
+  app.use("/api/cameras", camerasRouter({ db: deps.db, go2rtcUrl: deps.go2rtcUrl, recorderStatus: deps.recorderStatus }))
+  app.use("/api/cameras/:id/recordings", recordingsRouter({ db: deps.db }))
+  app.use("/api/cameras/:id/snapshots", snapshotsRouter({ db: deps.db, recordingsRoot: deps.recordingsRoot }))
+  app.use("/api/system", systemRouter({ db: deps.db, dbPath: deps.dbPath, recordingsRoot: deps.recordingsRoot, recorderStatus: deps.recorderStatus }))
+  app.use("/api/statics/recordings", express.static(deps.recordingsRoot))
 
   return app
 }

@@ -7,13 +7,12 @@ export interface RecordingsDeps {
 
 export function recordingsRouter(deps: RecordingsDeps): Router {
   const { db } = deps
-  const router = Router()
+  const router = Router({ mergeParams: true })
 
-  router.get("/recordings", (req, res) => {
-    const camera = req.query.camera as string | undefined
+  router.get("/", (req, res) => {
+    const camera = (req.params as { id: string }).id
     const from = req.query.from ? Number(req.query.from) : 0
     const to = req.query.to ? Number(req.query.to) : Date.now()
-    if (!camera) return res.status(400).json({ error: "camera required" })
 
     const rows = db
       .prepare(

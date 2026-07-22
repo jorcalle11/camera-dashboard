@@ -12,9 +12,9 @@ export interface SystemDeps {
 
 export function systemRouter(deps: SystemDeps): Router {
   const { db, dbPath, recordingsRoot, recorderStatus } = deps
-  const router = Router()
+  const router = Router({ mergeParams: true })
 
-  router.get("/system/status", (_req, res) => {
+  router.get("/status", (_req, res) => {
     const stats = statfsSync(recordingsRoot)
     const total = stats.bsize * stats.blocks
     const free = stats.bsize * stats.bfree

@@ -31,10 +31,10 @@ function defaultCapture(cameraId: string, outPath: string): Promise<string> {
 
 export function snapshotsRouter(deps: SnapshotDeps): Router {
   const { db, recordingsRoot, snapshotCapture = defaultCapture } = deps
-  const router = Router()
+  const router = Router({ mergeParams: true })
 
-  router.post("/cameras/:id/snapshot", async (req, res) => {
-    const cameraId = req.params.id
+  router.post("/", async (req, res) => {
+    const cameraId = (req.params as { id: string }).id
     const camera = db.prepare("SELECT id FROM cameras WHERE id=?").get(cameraId)
     if (!camera) return res.status(404).json({ error: "camera not found" })
 
@@ -54,16 +54,12 @@ export function snapshotsRouter(deps: SnapshotDeps): Router {
     }
   })
 
-  router.get("/snapshots", (req, res) => {
-    const camera = req.query.camera as string | undefined
+  router.get("/", (req, res) => {
+    const camera = (req.params as { id: string }).id
     const from = req.query.from ? Number(req.query.from) : 0
     const to = req.query.to ? Number(req.query.to) : Date.now()
-    let sql = "SELECT camera_id AS cameraId, ts, path, size_bytes AS sizeBytes FROM snapshots WHERE ts >= ? AND ts <= ?"
-    const params: (string | number)[] = [from, to]
-    if (camera) {
-      sql += " AND camera_id = ?"
-      params.push(camera)
-    }
+    let sql = "SELECT camera_id AS cameraId, ts, path, size_bytes AS sizeBytes FROM snapshots WHERE camera_id = ? AND ts >= ? AND ts <= ?"
+    const params: (string | number)[] = [camera, from, to]
     sql += " ORDER BY ts DESC"
     const rows = db.prepare(sql).all(...params)
     res.json(rows)
