@@ -6,10 +6,10 @@ services:
     volumes:
       - ./go2rtc/go2rtc.yaml:/config/go2rtc.yaml:ro
     ports:
-      - "1984:1984"       # API + web UI
-      - "8554:8554"       # RTSP restream (recorder consumes this in Phase 2)
-      - "8555:8555/tcp"   # WebRTC
-      - "8555:8555/udp"   # WebRTC
+      - "1984:1984"
+      - "8554:8554"
+      - "8555:8555/tcp"
+      - "8555:8555/udp"
 
   cameras-setup:
     image: node:24-alpine
@@ -18,7 +18,30 @@ services:
     volumes:
       - .:/workspace
       - cameras_setup_node_modules:/workspace/cameras-setup/node_modules
-    command: sh -c "npm install && npm run setup"
+    command: npm run setup
+
+  server:
+    build:
+      context: ./server
+      target: dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GO2RTC_URL: http://go2rtc:1984
+      RECORDINGS_PATH: /recordings
+      DATA_PATH: /data
+      CAMERAS_YML_PATH: /workspace/cameras.yml
+      DISK_FREE_THRESHOLD_GB: ${DISK_FREE_THRESHOLD_GB:-10}
+    volumes:
+      - ./server:/app
+      - server_node_modules:/app/node_modules
+      - ./cameras.yml:/workspace/cameras.yml:ro
+      - ${RECORDINGS_PATH}:/recordings
+      - ${DATA_PATH}:/data
+    ports:
+      - "3000:3000"
+    depends_on:
+      - go2rtc
 
   web-app:
     image: node:24-alpine
@@ -27,6 +50,7 @@ services:
     command: sh -c "npm install && npm run dev"
     environment:
       GO2RTC_URL: http://go2rtc:1984
+      SERVER_URL: http://server:3000
     volumes:
       - ./web-app:/app
       - web_app_node_modules:/app/node_modules
@@ -34,7 +58,9 @@ services:
       - "5173:5173"
     depends_on:
       - go2rtc
+      - server
 
 volumes:
   cameras_setup_node_modules:
+  server_node_modules:
   web_app_node_modules:
