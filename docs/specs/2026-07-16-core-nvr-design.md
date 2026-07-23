@@ -131,7 +131,7 @@ Nine HTTP endpoints + one WebSocket.
 | 6 | `GET /api/recordings?camera=&from=&to=` | Segment list (start, duration, path) for a range |
 | 7 | `GET /api/recordings/summary?camera=` | Hour-bucket coverage counts for cheap timeline rendering (mirrors Frigate) |
 | 8 | `GET /api/recordings/:camera/start/:ts/end/:ts/index.m3u8` | On-the-fly HLS VOD playlist stitching MP4 segments in range; hls.js handles cross-segment seeking (mirrors Frigate `/vod/...`) |
-| 9 | `GET /recordings/*` | Static range-request serving of MP4/JPG files (nginx in prod, Express static in dev) |
+| 9 | `GET /api/statics/recordings/*` | Static range-request serving of MP4/JPG files (nginx in prod, Express static in dev) |
 | 10 | `WS /api/ws` | Push recorder state changes and disk warnings to the UI |
 
 Deliberately absent: record start/stop (recording is continuous), auth (Tailscale), settings (Phase 5), events/detection (Phase 4 — slots into these shapes).

@@ -15,7 +15,7 @@ Wyze cam ──(1 rtsps connection)──▶ go2rtc ──▶ WebRTC / MSE ─�
   viewers (WebRTC first, MSE fallback).
 - **web-app** is a React + Tailwind grid of live tiles (offscreen tiles pause
   to a still poster; click a tile for fullscreen). In dev it runs Vite with
-  `/go2rtc`, `/api`, and `/recordings` proxies.
+  `/go2rtc` and `/api` proxies (static files under `/api/statics/recordings`).
 - **server** is a Node/Express container that records 24/7 from go2rtc's
   RTSP restream into 60s MP4 segments, indexes them in SQLite, serves API + WebSocket,
   and captures snapshots.

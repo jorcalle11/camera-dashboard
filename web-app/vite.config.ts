@@ -27,10 +27,6 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
-      "/recordings": {
-        target: serverTarget,
-        changeOrigin: true,
-      },
     },
   },
   test: {
