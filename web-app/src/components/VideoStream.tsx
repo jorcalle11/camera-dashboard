@@ -41,7 +41,7 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
 
   if (failed) {
     return (
-      <div className={`flex items-center justify-center bg-neutral-900 text-sm text-red-400 ${className ?? ""}`}>
+      <div className={`flex items-center justify-center bg-black text-sm text-red-400 ${className ?? ""}`}>
         stream unavailable
       </div>
     )

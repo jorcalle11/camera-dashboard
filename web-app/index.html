@@ -4,8 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Camera Dashboard</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme")
+          var preference = stored === "light" || stored === "dark" || stored === "system" ? stored : "system"
+          var dark =
+            preference === "dark" ||
+            (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+          document.documentElement.classList.toggle("dark", dark)
+        } catch (_) {}
+      })()
+    </script>
   </head>
-  <body class="h-full bg-neutral-950 text-neutral-100">
+  <body class="h-full">
     <div id="root" class="h-full"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
