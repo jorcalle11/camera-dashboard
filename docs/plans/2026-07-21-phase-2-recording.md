@@ -2244,7 +2244,7 @@ git commit -m "feat: recorder status badges and snapshot button on live tiles"
 **Interfaces:**
 - Produces: full stack running with live grid, recording files on disk, API endpoints responding, WebSocket badges visible.
 
-- [ ] **Step 1: Build and start the stack**
+- [x] **Step 1: Build and start the stack**
 
 Run:
 
@@ -2255,7 +2255,7 @@ docker compose up -d --build
 
 Expected: `server`, `go2rtc`, and `web-app` services all `running`.
 
-- [ ] **Step 2: Verify recording starts**
+- [x] **Step 2: Verify recording starts**
 
 Wait 90 seconds, then run:
 
@@ -2265,30 +2265,35 @@ ls -la recordings/cam1/$(date +%Y-%m-%d)/
 
 Expected: one or more `.mp4` files named like `14-30-00.mp4`.
 
-- [ ] **Step 3: Verify API endpoints**
+- [x] **Step 3: Verify API endpoints**
 
 Run:
 
 ```bash
 curl -s http://localhost:3000/api/cameras | python3 -m json.tool
 curl -s http://localhost:3000/api/system/status | python3 -m json.tool
-curl -s "http://localhost:3000/api/recordings?camera=cam1&from=0&to=9999999999999" | python3 -m json.tool
+curl -s "http://localhost:3000/api/cameras/cam1/recordings?from=0&to=9999999999999" | python3 -m json.tool
 ```
 
 Expected: camera list with `state: "recording"`, disk info, and at least one segment.
 
-- [ ] **Step 4: Verify WebSocket and snapshot**
+- [x] **Step 4: Verify WebSocket and snapshot**
 
 - Open `http://localhost:5173`.
-- Expect: live tile with red dot and "Snap" button.
-- Click Snap, then run: `curl -s http://localhost:3000/api/snapshots?camera=cam1` — expect a new snapshot entry.
+- Expect: live tile with red dot and snapshot button.
+- Click Snap, then run: `curl -s http://localhost:3000/api/cameras/cam1/snapshots` — expect a new snapshot entry.
+- WS: `ws://localhost:3000/api/ws` emits `{ type: "status", cameras, disk }`.
 
-- [ ] **Step 5: Commit any compose fixes**
+- [x] **Step 5: Commit any compose fixes**
 
 ```bash
 git add docker-compose.yml
-git commit -m "chore: wire server service into docker-compose for phase 2"
+git commit -m "fix: healthcheck path and IPv4 for server container"
 ```
+
+Smoke notes (2026-07-23):
+- Healthcheck was `http://localhost:3000/health` → fixed to `http://127.0.0.1:3000/api/health` (route is under `/api`; Alpine wget resolves `localhost` to IPv6 while Node listens on IPv4).
+- Both cams `state: "recording"`, MP4 segments on disk, segments indexed in SQLite, POST snapshot works, WS status broadcast works, server `healthy`.
 
 ---
 

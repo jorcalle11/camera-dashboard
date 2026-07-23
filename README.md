@@ -173,7 +173,7 @@ All services have `restart: unless-stopped`, so the stack survives reboots.
 ## Roadmap
 
 - **Phase 1 — live grid** (done): live view, mobile-first UI, docker-compose
-- **Phase 2 — record** (in progress): 24/7 recording to disk, snapshots, status badges
+- **Phase 2 — record** (done): 24/7 recording to disk, snapshots, status badges
 - **Phase 3 — timeline**: playback UI, retention, production build/deployment
 - **Phase 4 — detection**: motion events
 - **Phase 5 — settings**: camera controls (night vision, quality)
