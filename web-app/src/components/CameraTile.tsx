@@ -8,9 +8,10 @@ import TileOverlay from "./TileOverlay"
 interface CameraTileProps {
   camera: Camera
   status?: RecorderStatus
+  onHistory?: (cameraId: string) => void
 }
 
-export default function CameraTile({ camera, status }: CameraTileProps) {
+export default function CameraTile({ camera, status, onHistory }: CameraTileProps) {
   const tileRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const { showToast } = useToast()
@@ -51,7 +52,12 @@ export default function CameraTile({ camera, status }: CameraTileProps) {
       className="relative aspect-video overflow-hidden rounded-lg bg-black"
     >
       <VideoStream cameraId={camera.id} paused={!visible} className="h-full w-full" />
-      <TileOverlay camera={camera} state={state} onSnapshot={takeSnapshot} />
+      <TileOverlay
+        camera={camera}
+        state={state}
+        onSnapshot={takeSnapshot}
+        onHistory={onHistory ? () => onHistory(camera.id) : undefined}
+      />
     </div>
   )
 }
