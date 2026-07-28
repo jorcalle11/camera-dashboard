@@ -8,7 +8,7 @@ export function useCameras() {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/cameras.json")
+    fetch("/api/cameras")
       .then((res) => {
         if (!res.ok) throw new Error(`failed to load cameras: HTTP ${res.status}`)
         return res.json() as Promise<Camera[]>

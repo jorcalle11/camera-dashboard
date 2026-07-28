@@ -5,7 +5,7 @@ import { useCameras } from "../useCameras"
 describe("useCameras", () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it("loads cameras from /cameras.json", async () => {
+  it("loads cameras from /api/cameras", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -19,7 +19,7 @@ describe("useCameras", () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.cameras).toEqual([{ id: "cam1", name: "Front Door" }])
     expect(result.current.error).toBeNull()
-    expect(fetch).toHaveBeenCalledWith("/cameras.json")
+    expect(fetch).toHaveBeenCalledWith("/api/cameras")
   })
 
   it("reports an error on failure", async () => {
