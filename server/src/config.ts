@@ -7,6 +7,7 @@ export interface CameraConfig {
   url: string
   enabled: boolean
   retentionDays: number
+  retentionMaxSizeGb: number
 }
 
 export interface AppConfig {
@@ -47,6 +48,7 @@ export function loadServerConfig(yamlText: string): AppConfig {
       url: cam.url,
       enabled: cam.enabled,
       retentionDays: cam.retention_days,
+      retentionMaxSizeGb: typeof cam.retention_max_size_gb === "number" ? cam.retention_max_size_gb : 50,
     }
   })
 

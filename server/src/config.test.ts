@@ -21,7 +21,7 @@ describe("loadServerConfig", () => {
     const cfg = loadServerConfig(YAML)
     expect(cfg.webrtcCandidate).toBe("${HOST_IP}:8555")
     expect(cfg.cameras).toEqual([
-      { id: "cam1", name: "Front Door", url: "${CAM1_RTSP_URL}", enabled: true, retentionDays: 7 },
+      { id: "cam1", name: "Front Door", url: "${CAM1_RTSP_URL}", enabled: true, retentionDays: 7, retentionMaxSizeGb: 50 },
     ])
   })
 
