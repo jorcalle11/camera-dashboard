@@ -1,8 +1,9 @@
 import { useEffect, useRef, type RefObject } from "react"
+import Hls from "hls.js"
 import { formatMsOfDay } from "../lib/timeline"
 
 interface PlaybackPlayerProps {
-  videoUrl: string
+  src: string
   playheadMsOfDay: number
   playing: boolean
   speed: number
@@ -13,7 +14,7 @@ interface PlaybackPlayerProps {
 }
 
 export default function PlaybackPlayer({
-  videoUrl,
+  src,
   playheadMsOfDay,
   playing,
   speed,
@@ -24,6 +25,61 @@ export default function PlaybackPlayer({
 }: PlaybackPlayerProps) {
   const internalRef = useRef<HTMLVideoElement>(null)
   const videoRef = externalRef ?? internalRef
+  const hlsRef = useRef<Hls | null>(null)
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+
+    if (src && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true })
+      hlsRef.current = hls
+
+      hls.loadSource(src)
+      hls.attachMedia(el)
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        onLoadedMetadata?.(el.duration || 0)
+      })
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad()
+              break
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError()
+              break
+            default:
+              hls.destroy()
+              break
+          }
+        }
+      })
+
+      return () => {
+        hls.destroy()
+        hlsRef.current = null
+      }
+    } else if (src && el.canPlayType("application/vnd.apple.mpegurl")) {
+      el.src = src
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy()
+        hlsRef.current = null
+      }
+    }
+  }, [src, videoRef, onLoadedMetadata])
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    if (playing) void el.play().catch(() => {})
+    else el.pause()
+  }, [playing, videoRef, src])
 
   useEffect(() => {
     const el = videoRef.current
@@ -31,18 +87,10 @@ export default function PlaybackPlayer({
     el.playbackRate = speed
   }, [speed, videoRef])
 
-  useEffect(() => {
-    const el = videoRef.current
-    if (!el) return
-    if (playing) void el.play().catch(() => {})
-    else el.pause()
-  }, [playing, videoRef, videoUrl])
-
   return (
     <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
       <video
         ref={videoRef}
-        src={videoUrl}
         className="h-full w-full object-contain"
         playsInline
         preload="metadata"
