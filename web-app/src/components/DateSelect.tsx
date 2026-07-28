@@ -1,14 +1,15 @@
-import { daysAround } from "../lib/timeline"
+import { daysAround, addDays } from "../lib/timeline"
 
 interface DateSelectProps {
   value: string
-  fixtureDay: string | null
+  retentionDays: number
   onChange: (day: string) => void
   radius?: number
 }
 
-export default function DateSelect({ value, fixtureDay, onChange, radius = 3 }: DateSelectProps) {
-  const days = fixtureDay ? daysAround(fixtureDay, radius) : value ? [value] : []
+export default function DateSelect({ value, retentionDays, onChange, radius = 3 }: DateSelectProps) {
+  const today = new Date().toISOString().slice(0, 10)
+  const days = daysAround(today, radius)
 
   return (
     <label className="inline-flex items-center gap-2 text-sm">
@@ -20,11 +21,11 @@ export default function DateSelect({ value, fixtureDay, onChange, radius = 3 }: 
         aria-label="Date"
       >
         {days.map((day) => {
-          const enabled = day === fixtureDay
+          const enabled = day >= addDays(today, -retentionDays) && day <= today
           return (
             <option key={day} value={day} disabled={!enabled}>
               {day}
-              {enabled ? "" : " (no footage)"}
+              {enabled ? "" : " (expired)"}
             </option>
           )
         })}

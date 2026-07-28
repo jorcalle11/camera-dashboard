@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCameras } from "../hooks/useCameras"
-import { useTimelineFixtures } from "../hooks/useTimelineFixtures"
+import { useRecordingsSummary } from "../hooks/useRecordingsSummary"
 import {
   MS_PER_DAY,
   clamp,
   clampZoom,
-  msOfDayToVideoTime,
   videoTimeToMsOfDay,
 } from "../lib/timeline"
 import CameraSelect from "./CameraSelect"
@@ -17,6 +16,10 @@ import TransportBar, { type PlaybackSpeed } from "./TransportBar"
 const SPEEDS: PlaybackSpeed[] = [1, 2, 4]
 export const TIMELINE_CAMERA_KEY = "timeline.cameraId"
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 interface TimelinePageProps {
   cameraId: string
   onCameraChange: (cameraId: string) => void
@@ -25,21 +28,26 @@ interface TimelinePageProps {
 
 export default function TimelinePage({ cameraId, onCameraChange, onBack }: TimelinePageProps) {
   const { cameras, loading: camerasLoading, error: camerasError } = useCameras()
-  const { day: fixtureDay, ranges, videoUrl, loading: fixLoading, error: fixError } = useTimelineFixtures(cameraId)
 
-  const [day, setDay] = useState(fixtureDay ?? "2026-07-23")
+  const [day, setDay] = useState(todayIso)
   const [playheadMsOfDay, setPlayheadMsOfDay] = useState(12 * 3600 * 1000)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<PlaybackSpeed>(1)
   const [zoom, setZoom] = useState<ZoomWindow>({ startMs: 0, endMs: MS_PER_DAY })
-  const [duration, setDuration] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrubbing = useRef(false)
 
-  useEffect(() => {
-    if (fixtureDay) setDay(fixtureDay)
-  }, [fixtureDay])
+  const { ranges, loading: summaryLoading, error: summaryError } = useRecordingsSummary(cameraId, day)
+
+  const vodUrl = useMemo(() => {
+    const dayStartMs = new Date(`${day}T00:00:00Z`).getTime()
+    const playheadAbsMs = dayStartMs + playheadMsOfDay
+    const windowMs = 5 * 60 * 1000
+    const startSec = Math.floor((playheadAbsMs - windowMs) / 1000)
+    const endSec = Math.ceil((playheadAbsMs + windowMs) / 1000)
+    return `/api/recordings/${encodeURIComponent(cameraId)}/start/${startSec}/end/${endSec}/index.m3u8`
+  }, [cameraId, day, playheadMsOfDay])
 
   useEffect(() => {
     sessionStorage.setItem(TIMELINE_CAMERA_KEY, cameraId)
@@ -48,14 +56,14 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
   const seekVideoToPlayhead = useCallback(
     (ms: number) => {
       const el = videoRef.current
-      if (!el || !duration) return
+      if (!el || !el.duration) return
       scrubbing.current = true
-      el.currentTime = msOfDayToVideoTime(ms, duration)
-      queue.then(() => {
+      el.currentTime = (clamp(ms, 0, MS_PER_DAY) / MS_PER_DAY) * el.duration
+      queueMicrotask(() => {
         scrubbing.current = false
       })
     },
-    [duration],
+    [],
   )
 
   const onPlayheadChange = (ms: number) => {
@@ -66,21 +74,19 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
 
   const onSkip = (deltaSec: number) => {
     const el = videoRef.current
-    if (el && duration) {
-      el.currentTime = clamp(el.currentTime + deltaSec, 0, duration)
-      setPlayheadMsOfDay(videoTimeToMsOfDay(el.currentTime, duration))
+    if (el && el.duration) {
+      el.currentTime = clamp(el.currentTime + deltaSec, 0, el.duration)
+      setPlayheadMsOfDay(videoTimeToMsOfDay(el.currentTime, el.duration))
       return
     }
     onPlayheadChange(playheadMsOfDay + deltaSec * 1000)
   }
 
-  const activeRanges = day === fixtureDay ? ranges : []
-
-  if (camerasLoading || fixLoading) {
+  if (camerasLoading || summaryLoading) {
     return <p className="p-4 text-neutral-500 dark:text-neutral-400">Loading timeline…</p>
   }
-  if (camerasError || fixError) {
-    return <p className="p-4 text-red-600 dark:text-red-400">{camerasError ?? fixError}</p>
+  if (camerasError || summaryError) {
+    return <p className="p-4 text-red-600 dark:text-red-400">{camerasError ?? summaryError}</p>
   }
   if (cameras.length === 0) {
     return <p className="p-4 text-neutral-500 dark:text-neutral-400">No cameras configured.</p>
@@ -97,17 +103,16 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
           ‹ Live
         </button>
         <CameraSelect cameras={cameras} value={cameraId} onChange={onCameraChange} />
-        <DateSelect value={day} fixtureDay={fixtureDay} onChange={setDay} />
+        <DateSelect value={day} retentionDays={7} onChange={setDay} />
       </header>
 
       <div className="px-3">
         <PlaybackPlayer
-          videoUrl={videoUrl}
+          src={vodUrl}
           playheadMsOfDay={playheadMsOfDay}
           playing={playing}
           speed={speed}
           videoRef={videoRef}
-          onLoadedMetadata={(d) => setDuration(d)}
           onTimeUpdate={(t, d) => {
             if (scrubbing.current || !d) return
             setPlayheadMsOfDay(videoTimeToMsOfDay(t, d))
@@ -131,15 +136,15 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
       />
 
       <div className="px-3 text-sm text-neutral-500 dark:text-neutral-400">
-        {day === fixtureDay ? (
-          <span>Mock coverage · {activeRanges.length} range(s)</span>
+        {ranges.length > 0 ? (
+          <span>Coverage · {ranges.length} hour(s)</span>
         ) : (
-          <span>No fixture footage for this day</span>
+          <span>No footage for this day</span>
         )}
       </div>
 
       <TimelineStrip
-        ranges={activeRanges}
+        ranges={ranges}
         playheadMsOfDay={playheadMsOfDay}
         zoom={zoom}
         onPlayheadChange={onPlayheadChange}
