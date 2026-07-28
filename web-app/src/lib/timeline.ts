@@ -3,11 +3,6 @@ export const MIN_ZOOM_MS = 15 * 60 * 1000
 
 export type TimeRange = { startMsOfDay: number; endMsOfDay: number }
 
-export type TimelineCoverageFile = {
-  day: string
-  cameras: Record<string, { ranges: TimeRange[] }>
-}
-
 export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }

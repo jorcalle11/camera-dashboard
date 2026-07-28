@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react"
+import type React from "react"
 import Hls from "hls.js"
 import { formatMsOfDay } from "../lib/timeline"
 
@@ -90,7 +91,7 @@ export default function PlaybackPlayer({
   return (
     <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
       <video
-        ref={videoRef}
+        ref={videoRef as React.RefObject<HTMLVideoElement>}
         className="h-full w-full object-contain"
         playsInline
         preload="metadata"
