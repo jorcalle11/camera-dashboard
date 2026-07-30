@@ -11,13 +11,13 @@ RUN npm install
 COPY . .
 CMD ["npm", "run", "dev"]
 
-# Build stage: compiles TypeScript
+# Build stage: compiles TypeScript and production node_modules (native deps built here)
 FROM dev AS builder
 RUN npm run build
+RUN npm prune --omit=dev
 
-# Production stage: slim image with only runtime deps
+# Production stage: slim image with compiled app + runtime deps only
 FROM base AS prod
-COPY package*.json ./
-RUN npm install --omit=dev
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 CMD ["node", "dist/index.js"]

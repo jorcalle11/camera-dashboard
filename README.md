@@ -114,8 +114,15 @@ cost is negligible. Cameras with a well-behaved RTSP server can use a plain
 ## Deploying on a server
 
 Suitable for a LAN / homelab, with remote access via
-[Tailscale](https://tailscale.com). Do **not** port-forward these services on
-your router — go2rtc's API (`:1984`) has no authentication.
+[Tailscale](https://tailscale.com). Do **not** port-forward go2rtc or the API on
+your router without authentication in front.
+
+### Production (recommended)
+
+Builds the web UI, runs the API/recorder in production mode, and serves
+everything on one port via nginx. go2rtc's admin API (`:1984`) is **not**
+published to the host — only `/go2rtc` through nginx (same as the Vite dev
+proxy).
 
 ```bash
 # on the server (Docker required)
@@ -125,24 +132,33 @@ cd camera-dashboard
 cp .env.example .env
 # - fill in the real camera URLs
 # - HOST_IP=<the SERVER's LAN IP>   <- critical: WebRTC advertises this address
+# - HTTP_PORT=8080                 <- or 80 on Linux if nothing else uses it
 
 npm run setup
-docker compose up -d
+npm run prod
 ```
 
 Then:
 
-- **Verify:** `curl -s http://localhost:1984/api/streams | python3 -m json.tool`
-  and open `http://<server-ip>:5173`.
+- **Verify:** `curl -s http://localhost:8080/api/health` and open
+  `http://<server-ip>:8080` (adjust port if `HTTP_PORT` differs).
 - **Remote access:** install Tailscale on the server and your devices, then
-  use `http://<tailscale-name>:5173` from anywhere.
+  use `http://<tailscale-name>:8080` from anywhere.
 - **If the server's IP changes:** update `HOST_IP` in `.env` and
-  `docker compose up -d --force-recreate go2rtc`.
+  `docker compose -f docker-compose.prod.yml up -d --force-recreate go2rtc`.
+- **Updates:** `git pull && npm run setup && npm run prod` rebuilds images and
+  recreates containers.
 
-All services have `restart: unless-stopped`, so the stack survives reboots.
+All services use `restart: unless-stopped`, so the stack survives reboots.
 
-> A production build (nginx serving static assets, go2rtc API not exposed to
-> the host, TLS) is planned for Phase 3.
+TLS termination (e.g. Caddy or nginx on the host in front of `:8080`) is left
+to your environment; this repo serves plain HTTP on the configured port.
+
+### Development on the server
+
+Same as [Quick start](#quick-start) — `docker compose up -d` with Vite on
+`:5173` and the API on `:3000`. Useful when hacking on the machine; use
+**Production** for a stable install you share with the household.
 
 ## Commands
 
@@ -150,7 +166,9 @@ All services have `restart: unless-stopped`, so the stack survives reboots.
 |---|---|---|
 | `npm run setup` | root | Sync `.env` cameras -> `cameras.yml` -> generated configs |
 | `npm run test` | root | Run tests in all workspaces inside containers |
-| `npm run dev` | root | Start go2rtc + server + web-app in Docker |
+| `npm run dev` | root | Start go2rtc + server + web-app (Vite) in Docker |
+| `npm run prod` | root | Production stack: nginx + server + go2rtc |
+| `npm run prod:down` | root | Stop the production stack |
 | `docker compose logs go2rtc --since 5m` | root | Debug camera connections |
 
 ## Project structure
@@ -158,7 +176,9 @@ All services have `restart: unless-stopped`, so the stack survives reboots.
 ```
 ├── .env.example          # secrets template (copy to .env — never committed)
 ├── cameras.yml           # single source of truth (managed by npm run setup)
-├── docker-compose.yml    # go2rtc + server + web-app services
+├── docker-compose.yml        # dev: go2rtc + server + Vite
+├── docker-compose.prod.yml   # prod: go2rtc + server + nginx
+├── nginx/                    # production reverse proxy + static UI image
 ├── cameras-setup/        # config sync/generate tooling (TypeScript, vitest)
 ├── go2rtc/go2rtc.yaml    # GENERATED — go2rtc config (${VAR} placeholders only)
 ├── server/               # Node/Express API + RecorderManager + SQLite
@@ -174,7 +194,7 @@ All services have `restart: unless-stopped`, so the stack survives reboots.
 
 - **Phase 1 — live grid** (done): live view, mobile-first UI, docker-compose
 - **Phase 2 — record** (done): 24/7 recording to disk, snapshots, status badges
-- **Phase 3 — timeline**: playback UI, retention, production build/deployment
+- **Phase 3 — timeline** (in progress): playback UI, retention, production deploy via `npm run prod`
 - **Phase 4 — detection**: motion events
 - **Phase 5 — settings**: camera controls (night vision, quality)
 
