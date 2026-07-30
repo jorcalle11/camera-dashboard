@@ -28,13 +28,6 @@ for (const camera of config.cameras) {
   recorder.start(camera)
 }
 
-const retention = new RetentionJob({
-  db,
-  recordingsRoot: env.RECORDINGS_PATH,
-  cameras: config.cameras,
-  diskFreeThresholdGb: env.DISK_FREE_THRESHOLD_GB,
-})
-
 const app = createApp({
   db,
   dbPath: env.DB_PATH,
@@ -51,7 +44,13 @@ const { broadcast } = createStatusServer(server, recorder, () => {
   return { totalBytes: total, freeBytes: free, usedBytes: total - free }
 })
 
-retention.broadcast = broadcast
+const retention = new RetentionJob({
+  db,
+  recordingsRoot: env.RECORDINGS_PATH,
+  cameras: config.cameras,
+  diskFreeThresholdGb: env.DISK_FREE_THRESHOLD_GB,
+  broadcast,
+})
 retention.start()
 
 server.listen(env.PORT, "0.0.0.0", () => {
