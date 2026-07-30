@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events"
-import type { CameraConfig } from "../config"
+import type { CameraConfig } from "../config.js"
 
 export type RecorderState = "recording" | "retrying" | "stopped"
 

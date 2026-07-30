@@ -1,8 +1,8 @@
 import { unlinkSync, rmdirSync, readdirSync, statfsSync } from "node:fs"
 import { join } from "node:path"
 import type Database from "better-sqlite3"
-import type { CameraConfig } from "../config"
-import { logger } from "../logger"
+import type { CameraConfig } from "../config.js"
+import { logger } from "../logger.js"
 
 const MS_PER_DAY = 86_400_000
 const BYTES_PER_GB = 1024 ** 3

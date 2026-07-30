@@ -1,8 +1,8 @@
 import { createServer } from "node:http"
 import { describe, expect, it } from "vitest"
 import WebSocket from "ws"
-import { RecorderManager } from "./recorder/RecorderManager"
-import { createStatusServer } from "./websocket"
+import { RecorderManager } from "./recorder/RecorderManager.js"
+import { createStatusServer } from "./websocket.js"
 
 describe("createStatusServer", () => {
   it("broadcasts status to connected clients", async () => {

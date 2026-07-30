@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { getDb, migrate } from "../../db"
-import { indexSegments, parseSegmentPath, probeSegment } from "../indexer"
+import { getDb, migrate } from "../../db.js"
+import { indexSegments, parseSegmentPath, probeSegment } from "../indexer.js"
 
 describe("parseSegmentPath", () => {
   it("extracts camera, date and timestamp", () => {

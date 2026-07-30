@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events"
 import { describe, expect, it, vi } from "vitest"
-import { RecorderManager } from "../RecorderManager"
+import { RecorderManager } from "../RecorderManager.js"
 
 function fakeProcess() {
   const proc = new EventEmitter() as unknown as import("node:child_process").ChildProcess

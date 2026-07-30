@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { createWriteStream, mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
-import { env, getRtspUrl } from "../env"
+import { env, getRtspUrl } from "../env.js"
 
 export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
   return [

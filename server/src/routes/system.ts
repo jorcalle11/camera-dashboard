@@ -1,8 +1,8 @@
 import { Router } from "express"
 import type Database from "better-sqlite3"
 import { statfsSync, statSync } from "node:fs"
-import { env } from "../env"
-import type { CameraStatus } from "../recorder/RecorderManager"
+import { env } from "../env.js"
+import type { CameraStatus } from "../recorder/RecorderManager.js"
 
 export interface SystemDeps {
   db: Database.Database

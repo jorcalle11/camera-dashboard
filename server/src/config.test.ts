@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { loadServerConfig, syncCameras } from "./config"
-import { getDb, migrate } from "./db"
+import { loadServerConfig, syncCameras } from "./config.js"
+import { getDb, migrate } from "./db.js"
 
 const YAML = `
 webrtc_candidate: \${HOST_IP}:8555

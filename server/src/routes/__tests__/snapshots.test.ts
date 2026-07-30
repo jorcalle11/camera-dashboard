@@ -3,8 +3,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import request from "supertest"
-import { createApp } from "../../app"
-import { getDb, migrate } from "../../db"
+import { createApp } from "../../app.js"
+import { getDb, migrate } from "../../db.js"
 
 describe("snapshots routes", () => {
   let dir: string

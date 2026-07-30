@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Router } from "express"
 import type Database from "better-sqlite3"
-import { env, getRtspUrl } from "../env"
+import { env, getRtspUrl } from "../env.js"
 
 export interface SnapshotDeps {
   db: Database.Database

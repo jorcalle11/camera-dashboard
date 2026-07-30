@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events"
 import { spawn } from "node:child_process"
 import { describe, expect, it, vi } from "vitest"
-import { buildFfmpegArgs, spawnFfmpeg } from "../ffmpeg"
+import { buildFfmpegArgs, spawnFfmpeg } from "../ffmpeg.js"
 
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }))
 

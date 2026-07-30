@@ -1,7 +1,7 @@
 import type { Server as HttpServer } from "node:http"
 import { WebSocketServer } from "ws"
-import { logger } from "./logger"
-import type { RecorderManager } from "./recorder/RecorderManager"
+import { logger } from "./logger.js"
+import type { RecorderManager } from "./recorder/RecorderManager.js"
 
 export interface DiskInfo {
   totalBytes: number

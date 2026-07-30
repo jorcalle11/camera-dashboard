@@ -1,7 +1,7 @@
 import { Router } from "express"
 import type Database from "better-sqlite3"
-import { env, getRtspUrl } from "../env"
-import type { CameraStatus } from "../recorder/RecorderManager"
+import { env, getRtspUrl } from "../env.js"
+import type { CameraStatus } from "../recorder/RecorderManager.js"
 
 export interface CameraRouteDeps {
   db: Database.Database
