@@ -10,7 +10,7 @@ export function vodRouter(deps: VodDeps): Router {
   const router = Router({ mergeParams: true })
 
   router.get("/start/:start/end/:end/index.m3u8", (req, res) => {
-    const camera = String((req.params as Record<string, string>).camera ?? "")
+    const camera = (req.params as { camera: string }).camera
     const startSec = Number(req.params.start)
     const endSec = Number(req.params.end)
 

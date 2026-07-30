@@ -5,8 +5,6 @@
   "scripts": {
     "setup": "docker compose run --rm cameras-setup npm run setup",
     "test": "docker compose run --rm cameras-setup npm test && docker compose run --rm server npm test && docker compose run --rm web-app npm test",
-    "dev": "docker compose up",
-    "prod": "docker compose -f docker-compose.prod.yml up -d --build",
-    "prod:down": "docker compose -f docker-compose.prod.yml down"
+    "dev": "docker compose up"
   }
 }

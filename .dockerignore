@@ -1,9 +1,0 @@
-.git
-data
-recordings
-node_modules
-**/node_modules
-**/.env
-*.md
-docs
-.cursor
