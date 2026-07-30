@@ -1,22 +1,20 @@
-# Base image with Node + ffmpeg
+# Production build when compose context is the repository root (download/docker-compose.yml).
+# Dev continues to use Dockerfile with context ./server.
+
 FROM node:24-alpine AS base
 RUN apk add --no-cache ffmpeg
 WORKDIR /app
 
-# Development stage: includes build tools, dev deps, tsx watch
 FROM base AS dev
 RUN apk add --no-cache python3 make g++
-COPY package*.json ./
+COPY server/package*.json ./
 RUN npm install
-COPY . .
-CMD ["npm", "run", "dev"]
+COPY server/ .
 
-# Build stage: compiles TypeScript and production node_modules (native deps built here)
 FROM dev AS builder
 RUN npm run build
 RUN npm prune --omit=dev
 
-# Production stage: slim image with compiled app + runtime deps only
 FROM base AS prod
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist

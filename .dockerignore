@@ -1,0 +1,7 @@
+.git
+data
+recordings
+node_modules
+**/node_modules
+**/.env
+.cursor

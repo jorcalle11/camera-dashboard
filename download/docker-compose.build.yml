@@ -1,0 +1,22 @@
+# Optional: build images locally instead of pulling from GHCR (maintainers / pre-release).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.build.yml --profile setup run --rm cameras-setup
+
+services:
+  server:
+    image: !reset null
+    build:
+      context: ..
+      dockerfile: server/Dockerfile.release
+      target: prod
+
+  nginx:
+    image: !reset null
+    build:
+      context: ..
+      dockerfile: nginx/Dockerfile
+
+  cameras-setup:
+    image: !reset null
+    build:
+      context: ..
+      dockerfile: cameras-setup/Dockerfile.release

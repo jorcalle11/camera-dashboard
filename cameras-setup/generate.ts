@@ -11,11 +11,13 @@ export function generate(root: string) {
   mkdirSync(dirname(go2rtcPath), { recursive: true })
   writeFileSync(go2rtcPath, renderGo2rtc(config))
 
+  console.log(`wrote ${go2rtcPath}`)
+
+  if (process.env.INSTALL_ROOT) return
+
   const camerasJsonPath = join(root, "web-app", "public", "cameras.json")
   mkdirSync(dirname(camerasJsonPath), { recursive: true })
   writeFileSync(camerasJsonPath, renderClientCameras(config))
-
-  console.log(`wrote ${go2rtcPath}`)
   console.log(`wrote ${camerasJsonPath}`)
 }
 

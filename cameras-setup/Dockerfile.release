@@ -1,0 +1,8 @@
+# Production build when compose context is the repository root.
+
+FROM node:24-alpine
+WORKDIR /app
+COPY cameras-setup/package.json cameras-setup/package-lock.json ./
+RUN npm ci
+COPY cameras-setup/ .
+CMD ["npm", "run", "setup"]

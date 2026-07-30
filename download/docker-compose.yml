@@ -1,0 +1,74 @@
+# Production install — pull published images only (no git clone, no local build).
+# Configure via .env (see example.env).
+
+name: camera-dashboard
+
+services:
+  go2rtc:
+    image: alexxit/go2rtc:1.9.7
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./go2rtc/go2rtc.yaml:/config/go2rtc.yaml:ro
+    ports:
+      - "${GO2RTC_RTSP_PORT}:${GO2RTC_RTSP_PORT}"
+      - "${GO2RTC_WEBRTC_PORT}:${GO2RTC_WEBRTC_PORT}/tcp"
+      - "${GO2RTC_WEBRTC_PORT}:${GO2RTC_WEBRTC_PORT}/udp"
+
+  server:
+    image: ghcr.io/jorcalle11/camera-dashboard/server:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GO2RTC_URL: http://go2rtc:${GO2RTC_API_PORT}
+      PORT: ${SERVER_PORT}
+      RECORDINGS_PATH: ${RECORDINGS_CONTAINER_PATH}
+      DATA_PATH: ${DATA_CONTAINER_PATH}
+      CAMERAS_YML_PATH: /config/cameras.yml
+    volumes:
+      - ./cameras.yml:/config/cameras.yml:ro
+      - ${RECORDINGS_LOCATION}:${RECORDINGS_CONTAINER_PATH}
+      - ${DATA_LOCATION}:${DATA_CONTAINER_PATH}
+    depends_on:
+      - go2rtc
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://127.0.0.1:${SERVER_PORT}/api/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  nginx:
+    image: ghcr.io/jorcalle11/camera-dashboard/nginx:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RECORDINGS_CONTAINER_PATH: ${RECORDINGS_CONTAINER_PATH}
+      SERVER_PORT: ${SERVER_PORT}
+      GO2RTC_API_PORT: ${GO2RTC_API_PORT}
+      NGINX_HTTP_PORT: ${NGINX_HTTP_PORT}
+    ports:
+      - "${WEB_UI_PORT}:${NGINX_HTTP_PORT}"
+    volumes:
+      - ${RECORDINGS_LOCATION}:${RECORDINGS_CONTAINER_PATH}:ro
+    depends_on:
+      server:
+        condition: service_healthy
+      go2rtc:
+        condition: service_started
+
+  cameras-setup:
+    profiles: [setup]
+    image: ghcr.io/jorcalle11/camera-dashboard/cameras-setup:latest
+    env_file: .env
+    environment:
+      INSTALL_ROOT: /install
+    volumes:
+      - .:/install
