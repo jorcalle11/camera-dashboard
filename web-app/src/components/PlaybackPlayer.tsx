@@ -1,110 +1,186 @@
-import { useEffect, useRef, type RefObject } from "react"
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from "react"
 import type React from "react"
-import Hls from "hls.js"
 import { formatMsOfDay } from "../lib/timeline"
+import {
+  findSegmentIndexForMs,
+  parseVodPlaylist,
+  type VodSegment,
+} from "../lib/vodPlaylist"
+
+export type PlaybackPlayerHandle = {
+  seekToMsOfDay: (msOfDay: number) => void
+}
 
 interface PlaybackPlayerProps {
   src: string
+  /** Wall-clock position to open when `src` (playlist) changes. */
+  initialMsOfDay: number
   playheadMsOfDay: number
   playing: boolean
   speed: number
-  videoRef?: RefObject<HTMLVideoElement | null>
-  onTimeUpdate?: (currentTime: number, duration: number) => void
+  onTimeUpdate?: (msOfDay: number) => void
   onEnded?: () => void
-  onLoadedMetadata?: (duration: number) => void
+  onLoadedMetadata?: () => void
 }
 
-export default function PlaybackPlayer({
-  src,
-  playheadMsOfDay,
-  playing,
-  speed,
-  videoRef: externalRef,
-  onTimeUpdate,
-  onEnded,
-  onLoadedMetadata,
-}: PlaybackPlayerProps) {
-  const internalRef = useRef<HTMLVideoElement>(null)
-  const videoRef = externalRef ?? internalRef
-  const hlsRef = useRef<Hls | null>(null)
+const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
+  function PlaybackPlayer(
+    {
+      src,
+      initialMsOfDay,
+      playheadMsOfDay,
+      playing,
+      speed,
+      onTimeUpdate,
+      onEnded,
+      onLoadedMetadata,
+    },
+    ref,
+  ) {
+    const videoRef = useRef<HTMLVideoElement>(null)
+    const segmentsRef = useRef<VodSegment[]>([])
+    const segmentIndexRef = useRef(0)
+    const loadGenerationRef = useRef(0)
+    const pendingSeekMsRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    const el = videoRef.current
-    if (!el) return
+    const applySegment = useCallback(
+      (index: number, seekSec: number, generation: number) => {
+        const el = videoRef.current
+        const seg = segmentsRef.current[index]
+        if (!el || !seg) return
 
-    if (src && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true })
-      hlsRef.current = hls
+        segmentIndexRef.current = index
 
-      hls.loadSource(src)
-      hls.attachMedia(el)
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        onLoadedMetadata?.(el.duration || 0)
-      })
-
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError()
-              break
-            default:
-              hls.destroy()
-              break
-          }
+        const onMeta = () => {
+          el.removeEventListener("loadedmetadata", onMeta)
+          if (generation !== loadGenerationRef.current) return
+          el.currentTime = seekSec
+          onLoadedMetadata?.()
+          if (playing) void el.play().catch(() => {})
         }
-      })
+
+        el.addEventListener("loadedmetadata", onMeta)
+        el.src = seg.url
+        el.load()
+      },
+      [onLoadedMetadata, playing],
+    )
+
+    const seekToMsOfDay = useCallback(
+      (msOfDay: number) => {
+        const segments = segmentsRef.current
+        if (segments.length === 0) {
+          pendingSeekMsRef.current = msOfDay
+          return
+        }
+
+        const idx = findSegmentIndexForMs(segments, msOfDay)
+        if (idx < 0) return
+
+        const seg = segments[idx]!
+        const seekSec = Math.max(0, (msOfDay - seg.startMsOfDay) / 1000)
+
+        if (idx === segmentIndexRef.current && videoRef.current && videoRef.current.readyState >= 1) {
+          videoRef.current.currentTime = seekSec
+          return
+        }
+
+        const generation = ++loadGenerationRef.current
+        applySegment(idx, seekSec, generation)
+      },
+      [applySegment],
+    )
+
+    useImperativeHandle(ref, () => ({ seekToMsOfDay }), [seekToMsOfDay])
+
+    useEffect(() => {
+      const el = videoRef.current
+      if (!el || !src) return
+
+      let cancelled = false
+      const generation = ++loadGenerationRef.current
+      segmentsRef.current = []
+      segmentIndexRef.current = 0
+      pendingSeekMsRef.current = null
+
+      void (async () => {
+        try {
+          const res = await fetch(src)
+          if (!res.ok) throw new Error(`Playlist ${res.status}`)
+          const text = await res.text()
+          if (cancelled || generation !== loadGenerationRef.current) return
+
+          segmentsRef.current = parseVodPlaylist(text, src)
+          const targetMs = pendingSeekMsRef.current ?? initialMsOfDay
+          pendingSeekMsRef.current = null
+          if (segmentsRef.current.length === 0) return
+
+          const idx = findSegmentIndexForMs(segmentsRef.current, targetMs)
+          const seg = segmentsRef.current[idx >= 0 ? idx : 0]!
+          const seekSec = Math.max(0, (targetMs - seg.startMsOfDay) / 1000)
+          applySegment(idx >= 0 ? idx : 0, seekSec, generation)
+        } catch {
+          /* leave video empty; parent can show coverage status */
+        }
+      })()
 
       return () => {
-        hls.destroy()
-        hlsRef.current = null
+        cancelled = true
+        el.removeAttribute("src")
+        el.load()
       }
-    } else if (src && el.canPlayType("application/vnd.apple.mpegurl")) {
-      el.src = src
+    }, [src, initialMsOfDay, applySegment])
+
+    useEffect(() => {
+      const el = videoRef.current
+      if (!el) return
+      if (playing) void el.play().catch(() => {})
+      else el.pause()
+    }, [playing])
+
+    useEffect(() => {
+      const el = videoRef.current
+      if (!el) return
+      el.playbackRate = speed
+    }, [speed])
+
+    const onVideoEnded = () => {
+      const next = segmentIndexRef.current + 1
+      if (next < segmentsRef.current.length) {
+        const generation = loadGenerationRef.current
+        applySegment(next, 0, generation)
+        return
+      }
+      onEnded?.()
     }
 
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy()
-        hlsRef.current = null
-      }
-    }
-  }, [src, videoRef, onLoadedMetadata])
-
-  useEffect(() => {
-    const el = videoRef.current
-    if (!el) return
-    if (playing) void el.play().catch(() => {})
-    else el.pause()
-  }, [playing, videoRef, src])
-
-  useEffect(() => {
-    const el = videoRef.current
-    if (!el) return
-    el.playbackRate = speed
-  }, [speed, videoRef])
-
-  return (
-    <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
-      <video
-        ref={videoRef as React.RefObject<HTMLVideoElement>}
-        className="h-full w-full object-contain"
-        playsInline
-        preload="metadata"
-        onTimeUpdate={(e) => {
-          const v = e.currentTarget
-          onTimeUpdate?.(v.currentTime, v.duration || 0)
-        }}
-        onEnded={() => onEnded?.()}
-        onLoadedMetadata={(e) => onLoadedMetadata?.(e.currentTarget.duration || 0)}
-      />
-      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/65 px-2 py-0.5 font-mono text-xs text-white tabular-nums">
-        {formatMsOfDay(playheadMsOfDay)}
+    return (
+      <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+        <video
+          ref={videoRef as React.RefObject<HTMLVideoElement>}
+          className="h-full w-full object-contain"
+          playsInline
+          preload="auto"
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget
+            const seg = segmentsRef.current[segmentIndexRef.current]
+            if (!seg) return
+            onTimeUpdate?.(seg.startMsOfDay + v.currentTime * 1000)
+          }}
+          onEnded={onVideoEnded}
+        />
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/65 px-2 py-0.5 font-mono text-xs text-white tabular-nums">
+          {formatMsOfDay(playheadMsOfDay)}
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  },
+)
+
+export default PlaybackPlayer

@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCameras } from "../hooks/useCameras"
 import { useRecordingsSummary } from "../hooks/useRecordingsSummary"
-import {
-  MS_PER_DAY,
-  clamp,
-  clampZoom,
-  videoTimeToMsOfDay,
-} from "../lib/timeline"
+import { MS_PER_DAY, clamp, clampZoom } from "../lib/timeline"
 import CameraSelect from "./CameraSelect"
 import DateSelect from "./DateSelect"
-import PlaybackPlayer from "./PlaybackPlayer"
+import PlaybackPlayer, { type PlaybackPlayerHandle } from "./PlaybackPlayer"
 import TimelineStrip, { type ZoomWindow } from "./TimelineStrip"
 import TransportBar, { type PlaybackSpeed } from "./TransportBar"
 
 const SPEEDS: PlaybackSpeed[] = [1, 2, 4]
 export const TIMELINE_CAMERA_KEY = "timeline.cameraId"
+
+/** Length of the VOD window loaded into the player, starting at the playhead. */
+const VOD_WINDOW_MS = 10 * 60 * 1000
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -31,10 +29,14 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
 
   const [day, setDay] = useState(todayIso)
   const [playheadMsOfDay, setPlayheadMsOfDay] = useState(12 * 3600 * 1000)
+  // Start of the loaded VOD window (ms of day). Only changes on deliberate
+  // navigation (scrub, skip out of window) — never on playback progress, so
+  // the HLS source URL stays stable while the video plays.
+  const [windowStartMsOfDay, setWindowStartMsOfDay] = useState(12 * 3600 * 1000)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<PlaybackSpeed>(1)
   const [zoom, setZoom] = useState<ZoomWindow>({ startMs: 0, endMs: MS_PER_DAY })
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const playerRef = useRef<PlaybackPlayerHandle>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrubbing = useRef(false)
 
@@ -42,43 +44,39 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
 
   const vodUrl = useMemo(() => {
     const dayStartMs = new Date(`${day}T00:00:00Z`).getTime()
-    const playheadAbsMs = dayStartMs + playheadMsOfDay
-    const windowMs = 5 * 60 * 1000
-    const startSec = Math.floor((playheadAbsMs - windowMs) / 1000)
-    const endSec = Math.ceil((playheadAbsMs + windowMs) / 1000)
+    const startSec = Math.floor((dayStartMs + windowStartMsOfDay) / 1000)
+    const windowEndMsOfDay = Math.min(windowStartMsOfDay + VOD_WINDOW_MS, MS_PER_DAY)
+    const endSec = Math.ceil((dayStartMs + windowEndMsOfDay) / 1000)
     return `/api/recordings/${encodeURIComponent(cameraId)}/start/${startSec}/end/${endSec}/index.m3u8`
-  }, [cameraId, day, playheadMsOfDay])
+  }, [cameraId, day, windowStartMsOfDay])
 
   useEffect(() => {
     sessionStorage.setItem(TIMELINE_CAMERA_KEY, cameraId)
   }, [cameraId])
 
-  const seekVideoToPlayhead = useCallback(
+  const onPlayheadChange = useCallback(
     (ms: number) => {
-      const el = videoRef.current
-      if (!el || !el.duration) return
-      scrubbing.current = true
-      el.currentTime = (clamp(ms, 0, MS_PER_DAY) / MS_PER_DAY) * el.duration
-      queueMicrotask(() => {
-        scrubbing.current = false
-      })
+      const next = clamp(ms, 0, MS_PER_DAY)
+      setPlayheadMsOfDay(next)
+
+      const inLoadedWindow =
+        next >= windowStartMsOfDay && next < windowStartMsOfDay + VOD_WINDOW_MS
+
+      if (inLoadedWindow) {
+        scrubbing.current = true
+        playerRef.current?.seekToMsOfDay(next)
+        queueMicrotask(() => {
+          scrubbing.current = false
+        })
+        return
+      }
+
+      setWindowStartMsOfDay(next)
     },
-    [],
+    [windowStartMsOfDay],
   )
 
-  const onPlayheadChange = (ms: number) => {
-    const next = clamp(ms, 0, MS_PER_DAY)
-    setPlayheadMsOfDay(next)
-    seekVideoToPlayhead(next)
-  }
-
   const onSkip = (deltaSec: number) => {
-    const el = videoRef.current
-    if (el && el.duration) {
-      el.currentTime = clamp(el.currentTime + deltaSec, 0, el.duration)
-      setPlayheadMsOfDay(videoTimeToMsOfDay(el.currentTime, el.duration))
-      return
-    }
     onPlayheadChange(playheadMsOfDay + deltaSec * 1000)
   }
 
@@ -108,14 +106,15 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
 
       <div className="px-3">
         <PlaybackPlayer
+          ref={playerRef}
           src={vodUrl}
+          initialMsOfDay={windowStartMsOfDay}
           playheadMsOfDay={playheadMsOfDay}
           playing={playing}
           speed={speed}
-          videoRef={videoRef}
-          onTimeUpdate={(t, d) => {
-            if (scrubbing.current || !d) return
-            setPlayheadMsOfDay(videoTimeToMsOfDay(t, d))
+          onTimeUpdate={(msOfDay) => {
+            if (scrubbing.current) return
+            setPlayheadMsOfDay(clamp(msOfDay, 0, MS_PER_DAY))
           }}
           onEnded={() => setPlaying(false)}
         />

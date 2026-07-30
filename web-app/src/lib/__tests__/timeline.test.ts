@@ -7,8 +7,6 @@ import {
   clampZoom,
   daysAround,
   formatMsOfDay,
-  msOfDayToVideoTime,
-  videoTimeToMsOfDay,
 } from "../timeline"
 
 describe("clamp", () => {
@@ -37,14 +35,6 @@ describe("clampZoom", () => {
     const z = clampZoom(-1000, MS_PER_DAY + 1000)
     expect(z.startMs).toBe(0)
     expect(z.endMs).toBe(MS_PER_DAY)
-  })
-})
-
-describe("video mapping", () => {
-  it("maps playhead to video time and back", () => {
-    expect(msOfDayToVideoTime(0, 10)).toBe(0)
-    expect(msOfDayToVideoTime(MS_PER_DAY / 2, 10)).toBeCloseTo(5)
-    expect(videoTimeToMsOfDay(5, 10)).toBeCloseTo(MS_PER_DAY / 2)
   })
 })
 

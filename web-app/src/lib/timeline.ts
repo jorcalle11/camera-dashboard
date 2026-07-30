@@ -46,16 +46,6 @@ export function clampZoom(startMs: number, endMs: number): { startMs: number; en
   return { startMs: start, endMs: end }
 }
 
-export function msOfDayToVideoTime(playheadMs: number, durationSec: number): number {
-  if (durationSec <= 0) return 0
-  return (clamp(playheadMs, 0, MS_PER_DAY) / MS_PER_DAY) * durationSec
-}
-
-export function videoTimeToMsOfDay(t: number, durationSec: number): number {
-  if (durationSec <= 0) return 0
-  return clamp((t / durationSec) * MS_PER_DAY, 0, MS_PER_DAY)
-}
-
 export function addDays(isoDay: string, delta: number): string {
   const [y, m, d] = isoDay.split("-").map(Number)
   const dt = new Date(Date.UTC(y, m - 1, d))
