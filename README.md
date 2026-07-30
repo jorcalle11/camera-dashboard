@@ -1,24 +1,29 @@
 # Camera Dashboard
 
-Self-hosted camera dashboard (NVR in progress). Live view of all configured
-cameras in the browser — phone and desktop — with sub-second latency, running
-via Docker Compose.
+Self-hosted camera dashboard (NVR). Live view of all configured cameras in the
+browser — phone and desktop — with sub-second latency, 24/7 recording to disk,
+and a timeline for reviewing footage. Runs via Docker Compose.
 
 ## How it works
 
 ```
 Wyze cam ──(1 rtsps connection)──▶ go2rtc ──▶ WebRTC / MSE ──▶ browser grid
-                                          └─▶ rtsp://:8554/<id> (recorder, Phase 2)
+                                          └─▶ rtsp://:8554/<id> ──▶ recorder ──▶ 60s MP4 segments ──▶ timeline playback
 ```
 
 - **go2rtc** connects once to each camera and restreams to any number of
   viewers (WebRTC first, MSE fallback).
-- **web-app** is a React + Tailwind grid of live tiles (offscreen tiles pause
-  to a still poster; click a tile for fullscreen). In dev it runs Vite with
-  `/go2rtc` and `/api` proxies (static files under `/api/statics/recordings`).
+- **web-app** is a React + Tailwind client with two tabs: **Live** (grid of
+  live tiles — offscreen tiles pause to a still poster, click a tile for
+  fullscreen) and **Timeline** (per-camera playback with date picker,
+  zoomable 24h timeline strip, scrubbing, and 1x/2x/4x speed via hls.js).
+  Light/dark theme included. In dev it runs Vite with `/go2rtc` and `/api`
+  proxies (static files under `/api/statics/recordings`).
 - **server** is a Node/Express container that records 24/7 from go2rtc's
-  RTSP restream into 60s MP4 segments, indexes them in SQLite, serves API + WebSocket,
-  and captures snapshots.
+  RTSP restream into 60s MP4 segments, indexes them in SQLite, serves the
+  API + status WebSocket, captures snapshots, serves recordings as HLS VOD
+  for the timeline, and enforces retention (per-camera age limit plus a
+  disk-free safety valve).
 - **`cameras.yml` is the single source of truth** for cameras. `go2rtc.yaml`
   and `web-app/public/cameras.json` are generated from it — never edit those
   by hand.
@@ -113,36 +118,33 @@ cost is negligible. Cameras with a well-behaved RTSP server can use a plain
 
 ## Deploying on a server
 
-Suitable for a LAN / homelab, with remote access via
-[Tailscale](https://tailscale.com). Do **not** port-forward these services on
-your router — go2rtc's API (`:1984`) has no authentication.
+Production install uses a **download folder**: copy
+`download/docker-compose.yml` and `download/example.env` to a directory on the
+server, configure `.env`, generate configs, and run Compose. Full steps are in
+**[download/README.md](download/README.md)**.
+
+Summary ([full guide](download/README.md)):
 
 ```bash
-# on the server (Docker required)
-git clone <repo-url> camera-dashboard
-cd camera-dashboard
-
-cp .env.example .env
-# - fill in the real camera URLs
-# - HOST_IP=<the SERVER's LAN IP>   <- critical: WebRTC advertises this address
-
-npm run setup
-docker compose up -d
+mkdir camera-dashboard && cd camera-dashboard
+curl -fsSL -o docker-compose.yml \
+  https://github.com/jorcalle11/camera-dashboard/releases/latest/download/docker-compose.yml
+curl -fsSL -o example.env \
+  https://github.com/jorcalle11/camera-dashboard/releases/latest/download/example.env
+cp example.env .env
+# edit .env — cameras, HOST_IP, paths
+docker compose --profile setup run --rm cameras-setup
+docker compose pull && docker compose up -d
 ```
 
-Then:
+Images are always `ghcr.io/jorcalle11/camera-dashboard/*:latest` (defined in `docker-compose.yml`).
+Tag `v*` on GitHub rebuilds and retags `latest`; see `.github/workflows/release.yml`.
 
-- **Verify:** `curl -s http://localhost:1984/api/streams | python3 -m json.tool`
-  and open `http://<server-ip>:5173`.
-- **Remote access:** install Tailscale on the server and your devices, then
-  use `http://<tailscale-name>:5173` from anywhere.
-- **If the server's IP changes:** update `HOST_IP` in `.env` and
-  `docker compose up -d --force-recreate go2rtc`.
+Open `http://<server-ip>:<WEB_UI_PORT>` (see `WEB_UI_PORT` in `.env`). Use Tailscale for remote
+access; do not expose go2rtc :1984 on the public internet.
 
-All services have `restart: unless-stopped`, so the stack survives reboots.
-
-> A production build (nginx serving static assets, go2rtc API not exposed to
-> the host, TLS) is planned for Phase 3.
+For **development** on the server (Vite on :5173), clone the repo and use
+`npm run setup` + `docker compose up -d` from the repository root instead.
 
 ## Commands
 
@@ -157,28 +159,49 @@ All services have `restart: unless-stopped`, so the stack survives reboots.
 
 ```
 ├── .env.example          # secrets template (copy to .env — never committed)
+├── .github/workflows/    # release.yml — builds GHCR images + install bundle on v* tags
 ├── cameras.yml           # single source of truth (managed by npm run setup)
-├── docker-compose.yml    # go2rtc + server + web-app services
+├── docker-compose.yml    # dev: go2rtc + server + Vite web-app
+├── download/             # production install bundle (compose + example.env)
+├── nginx/                # production UI image (used by download compose)
 ├── cameras-setup/        # config sync/generate tooling (TypeScript, vitest)
 ├── go2rtc/go2rtc.yaml    # GENERATED — go2rtc config (${VAR} placeholders only)
-├── server/               # Node/Express API + RecorderManager + SQLite
+├── server/               # Node/Express API + recorder (RecorderManager,
+│                         #   RetentionJob, segment indexer) + SQLite
 └── web-app/              # React client (Vite + Tailwind)
     ├── public/cameras.json   # GENERATED — [{ id, name }] for the grid
     └── src/
-        ├── components/   # LiveGrid, CameraTile, VideoStream, TabBar, TileOverlay
-        ├── hooks/        # useCameras, useRecorderStatus
-        └── lib/go2rtc.ts # go2rtc URLs + web component loader
+        ├── components/   # LiveGrid, CameraTile, VideoStream, TabBar, TileOverlay,
+        │                 #   TimelinePage, TimelineStrip, PlaybackPlayer, TransportBar,
+        │                 #   DateSelect, CameraSelect, ThemeSwitcher
+        ├── hooks/        # useCameras, useRecorderStatus, useRecordingsSummary,
+        │                 #   useTheme, useToast
+        └── lib/          # go2rtc.ts (URLs + web component loader), timeline.ts
 ```
 
-## Roadmap
+## Features
 
-- **Phase 1 — live grid** (done): live view, mobile-first UI, docker-compose
-- **Phase 2 — record** (done): 24/7 recording to disk, snapshots, status badges
-- **Phase 3 — timeline**: playback UI, retention, production build/deployment
-- **Phase 4 — detection**: motion events
-- **Phase 5 — settings**: camera controls (night vision, quality)
+Working today:
 
-Design docs live in `docs/` (`plans/` and `specs/`).
+- **Live grid** — sub-second live view (WebRTC/MSE), mobile-first UI,
+  fullscreen per tile, recorder status badges.
+- **24/7 recording** — 60s MP4 segments per camera, SQLite index, snapshots,
+  live status over WebSocket.
+- **Timeline playback** — per-camera history with date picker, zoomable 24h
+  strip showing recorded coverage, scrubbing, skip, and 1x/2x/4x speed
+  (HLS VOD served from the recorded segments).
+- **Retention** — per-camera `retention_days` in `cameras.yml` plus a
+  `DISK_FREE_THRESHOLD_GB` safety valve that deletes oldest segments first.
+- **Production deployment** — prebuilt GHCR images (server, nginx UI,
+  cameras-setup), install bundle in `download/`, GitHub Actions release
+  workflow on `v*` tags.
+
+### For later
+
+Not implemented yet:
+
+- **Detection** — motion events (record/flag activity on the timeline).
+- **Settings** — camera controls from the UI (night vision, quality).
 
 ## Troubleshooting
 
