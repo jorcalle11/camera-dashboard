@@ -124,8 +124,9 @@ export function sync(root: string) {
     process.exit(1)
   }
 
+  const webrtcPort = process.env.GO2RTC_WEBRTC_PORT ?? "8555"
   const out = {
-    webrtc_candidate: doc.webrtc_candidate ?? "${HOST_IP}:8555",
+    webrtc_candidate: doc.webrtc_candidate ?? `\${HOST_IP}:${webrtcPort}`,
     cameras,
   }
   writeFileSync(camerasYmlPath, CAMERAS_YML_HEADER + stringify(out))
