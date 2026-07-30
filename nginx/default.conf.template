@@ -29,7 +29,9 @@ server {
   location /go2rtc/ {
     proxy_pass http://go2rtc:${GO2RTC_API_PORT}/;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
+    # go2rtc rejects WebSocket upgrades whose Origin doesn't match the Host
+    # header (403), so rewrite BOTH to the upstream (like Vite's changeOrigin).
+    proxy_set_header Host go2rtc:${GO2RTC_API_PORT};
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
     proxy_set_header Origin http://go2rtc:${GO2RTC_API_PORT};
