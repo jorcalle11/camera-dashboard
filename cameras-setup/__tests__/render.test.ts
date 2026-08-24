@@ -14,12 +14,15 @@ describe("renderGo2rtc", () => {
   it("renders streams for enabled cameras only, with env placeholders intact", () => {
     const out = renderGo2rtc(CFG)
     expect(out).toContain("cam1:")
-    expect(out).toContain("${CAM1_RTSP_URL}")
+    expect(out).toContain("${CAM1_RTSP_URL}#backchannel=0")
     expect(out).not.toContain("cam2:")
     expect(out).toContain('listen: ":1984"')   // api
     expect(out).toContain('listen: ":8554"')   // rtsp restream
     expect(out).toContain('listen: ":8555"')   // webrtc
     expect(out).toContain("${HOST_IP}:8555")   // candidate
+    expect(out).toContain("preload:")
+    expect(out).toContain("cam1:")
+    expect(out).not.toContain("cam2:")         // disabled camera not preloaded
     expect(out).toMatch(/^# GENERATED/)
   })
 })
