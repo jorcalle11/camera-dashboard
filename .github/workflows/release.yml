@@ -1,41 +1,88 @@
 name: Release
 
+# Auto-release on every merge/push to main: bump patch semver, build GHCR
+# images, and publish a GitHub Release with the install bundle attached.
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
 
 permissions:
   contents: write
   packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/jorcalle11/camera-dashboard
 
 jobs:
-  build-and-push:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        run: |
+          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Commit already tagged — skipping release."
+            exit 0
+          fi
+
+          git fetch --tags --force
+          latest=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n1)
+          if [ -z "$latest" ]; then
+            next="v0.1.0"
+          else
+            base="${latest#v}"
+            IFS=. read -r major minor patch <<< "$base"
+            patch=$((patch + 1))
+            next="v${major}.${minor}.${patch}"
+          fi
+
+          version="${next#v}"
+          IFS=. read -r major minor _ <<< "$version"
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor_series=${major}.${minor}" >> "$GITHUB_OUTPUT"
+          echo "Next version: $next"
+
+      - name: Create git tag
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - uses: docker/login-action@v4
+        if: steps.version.outputs.skip != 'true'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata (server)
+        if: steps.version.outputs.skip != 'true'
         id: meta_server
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_PREFIX }}/server
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.minor_series }}
             type=raw,value=latest
 
       - name: Build and push server
+        if: steps.version.outputs.skip != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -46,16 +93,18 @@ jobs:
           labels: ${{ steps.meta_server.outputs.labels }}
 
       - name: Docker metadata (nginx)
+        if: steps.version.outputs.skip != 'true'
         id: meta_nginx
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_PREFIX }}/nginx
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.minor_series }}
             type=raw,value=latest
 
       - name: Build and push nginx
+        if: steps.version.outputs.skip != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -65,16 +114,18 @@ jobs:
           labels: ${{ steps.meta_nginx.outputs.labels }}
 
       - name: Docker metadata (cameras-setup)
+        if: steps.version.outputs.skip != 'true'
         id: meta_setup
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_PREFIX }}/cameras-setup
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.minor_series }}
             type=raw,value=latest
 
       - name: Build and push cameras-setup
+        if: steps.version.outputs.skip != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -83,15 +134,12 @@ jobs:
           tags: ${{ steps.meta_setup.outputs.tags }}
           labels: ${{ steps.meta_setup.outputs.labels }}
 
-  github-release:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Attach install bundle to release
+      - name: Publish GitHub Release
+        if: steps.version.outputs.skip != 'true'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
           files: |
             download/docker-compose.yml
             download/example.env

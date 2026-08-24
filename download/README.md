@@ -108,8 +108,12 @@ public internet without auth in front.
 
 ## For maintainers (publishing)
 
-Tag `v*` pushes server, nginx, and cameras-setup images to GHCR and attaches
-`download/docker-compose.yml` + `download/example.env` to the GitHub Release.
-See `.github/workflows/release.yml`.
+Every merge to `main` automatically bumps the patch semver (e.g. `v0.1.3` →
+`v0.1.4`), builds server/nginx/cameras-setup images to GHCR, retags `latest`, and
+creates a GitHub Release with `download/docker-compose.yml` + `download/example.env`
+attached. See `.github/workflows/release.yml`.
+
+To skip a release, tag the commit before merging or push a commit that already has
+an exact tag.
 
 Development (Vite, local builds) uses the repo root `docker-compose.yml` — not this folder.
