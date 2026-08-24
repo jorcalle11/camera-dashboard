@@ -1,6 +1,6 @@
 services:
   go2rtc:
-    image: alexxit/go2rtc:1.9.7
+    image: alexxit/go2rtc:1.9.11
     restart: unless-stopped
     env_file: .env
     volumes:

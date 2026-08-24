@@ -49,7 +49,7 @@ export default function CameraTile({ camera, status, onHistory }: CameraTileProp
     <div
       ref={tileRef}
       onClick={toggleFullscreen}
-      className="relative aspect-video overflow-hidden rounded-lg bg-black"
+      className="relative aspect-video overflow-hidden rounded-lg bg-black md:aspect-auto md:h-full"
     >
       <VideoStream cameraId={camera.id} paused={!visible} className="h-full w-full" />
       <TileOverlay

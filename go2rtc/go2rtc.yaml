@@ -7,8 +7,17 @@ webrtc:
   listen: ":8555"
   candidates:
     - "${HOST_IP}:8555"
+preload:
+  cam1: null
+  cam2: null
+  cam3: null
+  cam4: null
 streams:
   cam1:
-    - "${CAM1_RTSP_URL}"
+    - "${CAM1_RTSP_URL}#backchannel=0"
   cam2:
-    - "${CAM2_RTSP_URL}"
+    - "${CAM2_RTSP_URL}#backchannel=0"
+  cam3:
+    - "${CAM3_RTSP_URL}#backchannel=0"
+  cam4:
+    - "${CAM4_RTSP_URL}#backchannel=0"

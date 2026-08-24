@@ -21,6 +21,7 @@ export interface RecorderManagerOptions {
   outputRoot: string
   baseBackoffMs?: number
   maxBackoffMs?: number
+  onBeforeSpawn?: (cameraId: string) => void | Promise<void>
 }
 
 interface ManagedCamera {
@@ -37,6 +38,7 @@ export class RecorderManager extends EventEmitter {
   private outputRoot: string
   private baseBackoffMs: number
   private maxBackoffMs: number
+  private onBeforeSpawn?: RecorderManagerOptions["onBeforeSpawn"]
 
   constructor(opts: RecorderManagerOptions) {
     super()
@@ -44,6 +46,7 @@ export class RecorderManager extends EventEmitter {
     this.outputRoot = opts.outputRoot
     this.baseBackoffMs = opts.baseBackoffMs ?? 1000
     this.maxBackoffMs = opts.maxBackoffMs ?? 60000
+    this.onBeforeSpawn = opts.onBeforeSpawn
   }
 
   start(camera: CameraConfig): void {
@@ -86,19 +89,26 @@ export class RecorderManager extends EventEmitter {
 
   private spawn(managed: ManagedCamera): void {
     const outputDir = `${this.outputRoot}/${managed.config.id}`
-    const { process } = this.spawnFfmpeg(managed.config.id, outputDir)
-    managed.process = process
-    managed.status.state = "recording"
-    managed.status.restartedAt = Date.now()
-    this.emitStatus(managed)
-
-    process.on("exit", (code) => {
-      if (managed.status.state === "stopped") return
-      managed.status.restarts += 1
-      managed.status.state = "retrying"
+    void (async () => {
+      try {
+        await this.onBeforeSpawn?.(managed.config.id)
+      } catch {
+        // preload is best-effort on retry
+      }
+      const { process } = this.spawnFfmpeg(managed.config.id, outputDir)
+      managed.process = process
+      managed.status.state = "recording"
+      managed.status.restartedAt = Date.now()
       this.emitStatus(managed)
-      this.scheduleRetry(managed)
-    })
+
+      process.on("exit", () => {
+        if (managed.status.state === "stopped") return
+        managed.status.restarts += 1
+        managed.status.state = "retrying"
+        this.emitStatus(managed)
+        this.scheduleRetry(managed)
+      })
+    })()
   }
 
   private scheduleRetry(managed: ManagedCamera): void {

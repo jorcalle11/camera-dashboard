@@ -9,8 +9,12 @@ function go2rtcPortEnv(name: "API" | "RTSP" | "WEBRTC", fallback: string): strin
 
 export function renderGo2rtc(config: AppConfig): string {
   const streams: Record<string, string[]> = {}
+  const preload: Record<string, null> = {}
   for (const cam of config.cameras) {
-    if (cam.enabled) streams[cam.id] = [cam.url]
+    if (!cam.enabled) continue
+    streams[cam.id] = [`${cam.url}#backchannel=0`]
+    // Keep upstream producers warm so 24/7 recording does not depend on a browser viewer.
+    preload[cam.id] = null
   }
   const doc = {
     api: { listen: `:${go2rtcPortEnv("API", "1984")}` },
@@ -19,6 +23,7 @@ export function renderGo2rtc(config: AppConfig): string {
       listen: `:${go2rtcPortEnv("WEBRTC", "8555")}`,
       candidates: [config.webrtcCandidate],
     },
+    preload,
     streams,
   }
   return HEADER + stringify(doc, { defaultStringType: "QUOTE_DOUBLE", defaultKeyType: "PLAIN" })

@@ -7,9 +7,10 @@ WebSocket used by the web app.
 ## What it does
 
 - Reads the camera list from `cameras.yml` (mounted read-only).
-- Spawns one ffmpeg process per enabled camera (`RecorderManager`), recording
-  the go2rtc restream into **60-second MP4 segments** under
-  `RECORDINGS_PATH/<cameraId>/`.
+- Waits for go2rtc, preloads every enabled stream, then spawns one ffmpeg
+  process per enabled camera (`RecorderManager`), recording the go2rtc restream
+  into **60-second MP4 segments** under `RECORDINGS_PATH/<cameraId>/`.
+  Recording runs entirely in this container — no browser or web-app required.
 - Indexes segments in SQLite (`indexer` scans on boot, then watches the
   filesystem with chokidar).
 - Runs a `RetentionJob` that deletes segments older than each camera's
