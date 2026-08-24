@@ -138,7 +138,8 @@ docker compose pull && docker compose up -d
 ```
 
 Images are always `ghcr.io/jorcalle11/camera-dashboard/*:latest` (defined in `docker-compose.yml`).
-Tag `v*` on GitHub rebuilds and retags `latest`; see `.github/workflows/release.yml`.
+Every merge to `main` auto-bumps the patch version, rebuilds images, and publishes a
+GitHub Release — see `.github/workflows/release.yml`.
 
 Open `http://<server-ip>:<WEB_UI_PORT>` (see `WEB_UI_PORT` in `.env`). Use Tailscale for remote
 access; do not expose go2rtc :1984 on the public internet.
@@ -159,7 +160,7 @@ For **development** on the server (Vite on :5173), clone the repo and use
 
 ```
 ├── .env.example          # secrets template (copy to .env — never committed)
-├── .github/workflows/    # release.yml — builds GHCR images + install bundle on v* tags
+├── .github/workflows/    # release.yml — auto-release on merge to main
 ├── cameras.yml           # single source of truth (managed by npm run setup)
 ├── docker-compose.yml    # dev: go2rtc + server + Vite web-app
 ├── download/             # production install bundle (compose + example.env)
