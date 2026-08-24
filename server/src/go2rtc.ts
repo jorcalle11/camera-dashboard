@@ -19,20 +19,3 @@ export async function waitForGo2rtc(baseUrl: string, timeoutMs = DEFAULT_TIMEOUT
   }
   throw new Error(`go2rtc not ready after ${timeoutMs}ms (${baseUrl})`)
 }
-
-/** Re-assert preload so camera producers stay warm even without browser viewers. */
-export async function ensurePreload(baseUrl: string, cameraId: string): Promise<void> {
-  const url = `${baseUrl}/api/preload?src=${encodeURIComponent(cameraId)}`
-  const res = await fetch(url, { method: "PUT" })
-  if (!res.ok) {
-    const body = await res.text().catch(() => "")
-    throw new Error(`go2rtc preload failed for ${cameraId}: ${res.status} ${body}`.trim())
-  }
-}
-
-export async function ensurePreloads(baseUrl: string, cameraIds: string[]): Promise<void> {
-  for (const id of cameraIds) {
-    await ensurePreload(baseUrl, id)
-    logger.info({ cameraId: id }, "go2rtc preload ensured")
-  }
-}
