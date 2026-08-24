@@ -4,7 +4,7 @@ import { createApp } from "./app.js"
 import { loadServerConfig, syncCameras } from "./config.js"
 import { getDb, migrate } from "./db.js"
 import { env } from "./env.js"
-import { ensurePreload, ensurePreloads, waitForGo2rtc } from "./go2rtc.js"
+import { waitForGo2rtc } from "./go2rtc.js"
 import { logger } from "./logger.js"
 import { spawnFfmpeg } from "./recorder/ffmpeg.js"
 import { indexSegments, watchSegments } from "./recorder/indexer.js"
@@ -25,14 +25,11 @@ async function main() {
   indexSegments({ db, recordingsRoot: env.RECORDINGS_PATH })
   const watcher = watchSegments({ db, recordingsRoot: env.RECORDINGS_PATH })
 
-  const enabledCameras = config.cameras.filter((cam) => cam.enabled)
   await waitForGo2rtc(env.GO2RTC_URL)
-  await ensurePreloads(env.GO2RTC_URL, enabledCameras.map((cam) => cam.id))
 
   const recorder = new RecorderManager({
     spawnFfmpeg,
     outputRoot: env.RECORDINGS_PATH,
-    onBeforeSpawn: (cameraId) => ensurePreload(env.GO2RTC_URL, cameraId),
   })
   for (const camera of config.cameras) {
     recorder.start(camera)
