@@ -15,3 +15,13 @@ cameras:
     url: ${CAM2_RTSP_URL}
     enabled: true
     retention_days: 7
+  - id: cam3
+    name: Camera 3
+    url: ${CAM3_RTSP_URL}
+    enabled: true
+    retention_days: 7
+  - id: cam4
+    name: Camera 4
+    url: ${CAM4_RTSP_URL}
+    enabled: true
+    retention_days: 7
