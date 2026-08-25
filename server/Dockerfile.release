@@ -1,7 +1,7 @@
 # Production build when compose context is the repository root (download/docker-compose.yml).
 # Dev continues to use Dockerfile with context ./server.
 
-FROM node:24-alpine AS base
+FROM node:22-alpine AS base
 RUN apk add --no-cache ffmpeg
 WORKDIR /app
 

@@ -26,6 +26,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify server Dockerfiles use same Node version
+        run: |
+          dev_version=$(grep -m1 '^FROM node:' server/Dockerfile | sed 's/.*node:\([^ -]*\).*/\1/')
+          release_version=$(grep -m1 '^FROM node:' server/Dockerfile.release | sed 's/.*node:\([^ -]*\).*/\1/')
+          echo "server/Dockerfile: node:${dev_version}"
+          echo "server/Dockerfile.release: node:${release_version}"
+          if [ "$dev_version" != "$release_version" ]; then
+            echo "::error::Node version mismatch: server/Dockerfile uses node:${dev_version} but server/Dockerfile.release uses node:${release_version}"
+            exit 1
+          fi
+
       - name: Determine next version
         id: version
         run: |
