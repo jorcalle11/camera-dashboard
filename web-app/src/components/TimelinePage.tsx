@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCameras } from "../hooks/useCameras"
 import { useRecordingsSummary } from "../hooks/useRecordingsSummary"
-import { MS_PER_DAY, clamp, clampZoom } from "../lib/timeline"
+import {
+  MS_PER_DAY,
+  clamp,
+  clampZoom,
+  initialPlayheadMs,
+  localDayStartMs,
+  localIsoDay,
+} from "../lib/timeline"
 import CameraSelect from "./CameraSelect"
 import DateSelect from "./DateSelect"
 import PlaybackPlayer, { type PlaybackPlayerHandle } from "./PlaybackPlayer"
 import TimelineStrip, { type ZoomWindow } from "./TimelineStrip"
-import TransportBar, { type PlaybackSpeed } from "./TransportBar"
 
-const SPEEDS: PlaybackSpeed[] = [1, 2, 4]
 export const TIMELINE_CAMERA_KEY = "timeline.cameraId"
 
 /** Length of the VOD window loaded into the player, starting at the playhead. */
 const VOD_WINDOW_MS = 10 * 60 * 1000
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 interface TimelinePageProps {
   cameraId: string
@@ -27,32 +28,50 @@ interface TimelinePageProps {
 export default function TimelinePage({ cameraId, onCameraChange, onBack }: TimelinePageProps) {
   const { cameras, loading: camerasLoading, error: camerasError } = useCameras()
 
-  const [day, setDay] = useState(todayIso)
+  const [day, setDay] = useState(localIsoDay)
   const [playheadMsOfDay, setPlayheadMsOfDay] = useState(12 * 3600 * 1000)
   // Start of the loaded VOD window (ms of day). Only changes on deliberate
   // navigation (scrub, skip out of window) — never on playback progress, so
   // the HLS source URL stays stable while the video plays.
   const [windowStartMsOfDay, setWindowStartMsOfDay] = useState(12 * 3600 * 1000)
-  const [playing, setPlaying] = useState(false)
-  const [speed, setSpeed] = useState<PlaybackSpeed>(1)
   const [zoom, setZoom] = useState<ZoomWindow>({ startMs: 0, endMs: MS_PER_DAY })
   const playerRef = useRef<PlaybackPlayerHandle>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
   const scrubbing = useRef(false)
+  const snappedKey = useRef("")
+  const [readyKey, setReadyKey] = useState("")
 
   const { ranges, loading: summaryLoading, error: summaryError } = useRecordingsSummary(cameraId, day)
+  const dayStartMs = localDayStartMs(day)
+  const viewKey = `${cameraId}:${day}`
 
   const vodUrl = useMemo(() => {
-    const dayStartMs = new Date(`${day}T00:00:00Z`).getTime()
+    if (ranges.length === 0) return ""
     const startSec = Math.floor((dayStartMs + windowStartMsOfDay) / 1000)
     const windowEndMsOfDay = Math.min(windowStartMsOfDay + VOD_WINDOW_MS, MS_PER_DAY)
     const endSec = Math.ceil((dayStartMs + windowEndMsOfDay) / 1000)
     return `/api/recordings/${encodeURIComponent(cameraId)}/start/${startSec}/end/${endSec}/index.m3u8`
-  }, [cameraId, day, windowStartMsOfDay])
+  }, [cameraId, dayStartMs, windowStartMsOfDay, ranges.length])
 
   useEffect(() => {
     sessionStorage.setItem(TIMELINE_CAMERA_KEY, cameraId)
   }, [cameraId])
+
+  useEffect(() => {
+    if (summaryLoading) return
+    if (snappedKey.current === viewKey) return
+    snappedKey.current = viewKey
+    const ms = initialPlayheadMs(ranges, day)
+    setPlayheadMsOfDay(ms)
+    setWindowStartMsOfDay(ms)
+    if (ranges.length > 0) {
+      const last = ranges[ranges.length - 1]!
+      const pad = 30 * 60 * 1000
+      setZoom(clampZoom(last.startMsOfDay - pad, last.endMsOfDay + pad))
+    } else {
+      setZoom({ startMs: 0, endMs: MS_PER_DAY })
+    }
+    setReadyKey(viewKey)
+  }, [viewKey, day, summaryLoading, ranges])
 
   const onPlayheadChange = useCallback(
     (ms: number) => {
@@ -76,27 +95,23 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
     [windowStartMsOfDay],
   )
 
-  const onSkip = (deltaSec: number) => {
-    onPlayheadChange(playheadMsOfDay + deltaSec * 1000)
-  }
-
-  if (camerasLoading || summaryLoading) {
-    return <p className="p-4 text-neutral-500 dark:text-neutral-400">Loading timeline…</p>
-  }
   if (camerasError || summaryError) {
     return <p className="p-4 text-red-600 dark:text-red-400">{camerasError ?? summaryError}</p>
+  }
+  if (camerasLoading || summaryLoading || readyKey !== viewKey) {
+    return <p className="p-4 text-neutral-500 dark:text-neutral-400">Loading timeline…</p>
   }
   if (cameras.length === 0) {
     return <p className="p-4 text-neutral-500 dark:text-neutral-400">No cameras configured.</p>
   }
 
   return (
-    <div ref={containerRef} className="mx-auto flex w-full max-w-3xl flex-col lg:max-w-5xl xl:max-w-7xl">
+    <div className="mx-auto flex w-full max-w-3xl flex-col lg:max-w-5xl xl:max-w-7xl">
       <header className="flex items-center justify-between gap-2 px-3 py-3">
         <button
           type="button"
           onClick={onBack}
-          className="min-h-11 rounded-md px-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+          className="min-h-11 cursor-pointer rounded-md px-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
         >
           ‹ Live
         </button>
@@ -108,35 +123,19 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
         <PlaybackPlayer
           ref={playerRef}
           src={vodUrl}
+          dayStartMs={dayStartMs}
           initialMsOfDay={windowStartMsOfDay}
           playheadMsOfDay={playheadMsOfDay}
-          playing={playing}
-          speed={speed}
           onTimeUpdate={(msOfDay) => {
             if (scrubbing.current) return
             setPlayheadMsOfDay(clamp(msOfDay, 0, MS_PER_DAY))
           }}
-          onEnded={() => setPlaying(false)}
         />
       </div>
 
-      <TransportBar
-        playing={playing}
-        speed={speed}
-        onTogglePlay={() => setPlaying((p) => !p)}
-        onSkip={onSkip}
-        onCycleSpeed={() => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]!)}
-        onFullscreen={() => {
-          const el = containerRef.current
-          if (!el) return
-          if (document.fullscreenElement) void document.exitFullscreen()
-          else void el.requestFullscreen()
-        }}
-      />
-
       <div className="px-3 text-sm text-neutral-500 dark:text-neutral-400">
         {ranges.length > 0 ? (
-          <span>Coverage · {ranges.length} hour(s)</span>
+          <span>Coverage · {ranges.length} clip{ranges.length === 1 ? "" : "s"}</span>
         ) : (
           <span>No footage for this day</span>
         )}
