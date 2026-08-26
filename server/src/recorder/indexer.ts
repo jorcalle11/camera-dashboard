@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3"
 import { globSync } from "node:fs"
 import { statSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import chokidar from "chokidar"
 
 export interface SegmentProbe {
@@ -57,36 +57,43 @@ export function indexSegments(opts: IndexSegmentsOptions): void {
 export interface WatchSegmentsOptions {
   db: Database.Database
   recordingsRoot: string
-  onPreviousSegment?: (relativePath: string) => void
+  probeFn?: (path: string) => SegmentProbe
 }
 
-export function watchSegments(opts: WatchSegmentsOptions): chokidar.FSWatcher {
-  const { db, recordingsRoot } = opts
+export function upsertSegmentFromPath(
+  db: Database.Database,
+  recordingsRoot: string,
+  relativePath: string,
+  probeFn: (path: string) => SegmentProbe = probeSegment,
+): boolean {
+  const parsed = parseSegmentPath(relativePath)
+  if (!parsed) return false
   const insert = db.prepare(
     `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(path) DO UPDATE SET duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes`,
   )
+  const probe = probeFn(join(recordingsRoot, relativePath))
+  insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, relativePath, probe.sizeBytes)
+  return true
+}
+
+export function watchSegments(opts: WatchSegmentsOptions): chokidar.FSWatcher {
+  const { db, recordingsRoot, probeFn = probeSegment } = opts
 
   const watcher = chokidar.watch(join(recordingsRoot, "*", "*", "*.mp4"), {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 2000 },
   })
 
+  // awaitWriteFinish means `add` fires after the segment file stops growing,
+  // so this is the completed file — not a guessed previous 60s path.
   watcher.on("add", (fullPath) => {
     const rel = fullPath.slice(recordingsRoot.length + 1)
-    const parsed = parseSegmentPath(rel)
-    if (!parsed) return
-    const prevTs = parsed.startTs - 60000
-    const prevDate = new Date(prevTs)
-    const pad = (n: number) => String(n).padStart(2, "0")
-    const prevRel = `${parsed.cameraId}/${prevDate.toISOString().slice(0, 10)}/${pad(prevDate.getHours())}-${pad(prevDate.getMinutes())}-${pad(prevDate.getSeconds())}.mp4`
-    const prevFull = join(recordingsRoot, prevRel)
     try {
-      const probe = probeSegment(prevFull)
-      insert.run(parsed.cameraId, prevTs, probe.durationMs, prevRel, probe.sizeBytes)
+      upsertSegmentFromPath(db, recordingsRoot, rel, probeFn)
     } catch {
-      // previous segment may not exist yet
+      // file may have been deleted between the event and the probe
     }
   })
 

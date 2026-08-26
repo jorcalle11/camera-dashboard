@@ -2,9 +2,9 @@ import Database from "better-sqlite3"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { getDb, migrate } from "../../db.js"
-import { indexSegments, parseSegmentPath, probeSegment } from "../indexer.js"
+import { indexSegments, parseSegmentPath, probeSegment, upsertSegmentFromPath } from "../indexer.js"
 
 describe("parseSegmentPath", () => {
   it("extracts camera, date and timestamp", () => {
@@ -53,5 +53,25 @@ describe("indexSegments", () => {
     indexSegments({ db, recordingsRoot: join(dir, "recordings"), probeFn: () => ({ durationMs: 60000, sizeBytes: 2048 }) })
     const rows = db.prepare("SELECT * FROM segments").all() as unknown[]
     expect(rows).toHaveLength(0)
+  })
+})
+
+describe("upsertSegmentFromPath", () => {
+  it("indexes the completed file, not a guessed previous path", () => {
+    const dir = mkdtempSync(join(tmpdir(), "nvr-upsert-"))
+    const db = getDb(join(dir, "nvr.db"))
+    migrate(db)
+    db.prepare("INSERT INTO cameras (id, name, enabled, created_at) VALUES (?, ?, ?, ?)").run("cam1", "Front Door", 1, Date.now())
+    const recDir = join(dir, "recordings", "cam1", "2026-08-26")
+    mkdirSync(recDir, { recursive: true })
+    writeFileSync(join(recDir, "19-53-01.mp4"), Buffer.alloc(2048))
+    const ok = upsertSegmentFromPath(db, join(dir, "recordings"), "cam1/2026-08-26/19-53-01.mp4", () => ({
+      durationMs: 60000,
+      sizeBytes: 2048,
+    }))
+    expect(ok).toBe(true)
+    const rows = db.prepare("SELECT path FROM segments").all() as { path: string }[]
+    expect(rows).toEqual([{ path: "cam1/2026-08-26/19-53-01.mp4" }])
+    rmSync(dir, { recursive: true, force: true })
   })
 })
