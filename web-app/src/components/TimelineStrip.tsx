@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   MS_PER_DAY,
   clamp,
@@ -72,38 +72,49 @@ export default function TimelineStrip({
     dragging.current = false
   }
 
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
+  useEffect(() => {
     const el = trackRef.current
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    const anchor = msFromClientX(e.clientX, rect, zoom)
-    const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
-    const newSpan = clamp(span * factor, 15 * 60 * 1000, MS_PER_DAY)
-    const ratio = span > 0 ? (anchor - zoom.startMs) / span : 0.5
-    const start = anchor - ratio * newSpan
-    onZoomChange(clampZoom(start, start + newSpan))
-  }
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const currentSpan = Math.max(1, zoom.endMs - zoom.startMs)
+      const anchor = msFromClientX(e.clientX, rect, zoom)
+      const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
+      const newSpan = clamp(currentSpan * factor, 15 * 60 * 1000, MS_PER_DAY)
+      const ratio = currentSpan > 0 ? (anchor - zoom.startMs) / currentSpan : 0.5
+      const start = anchor - ratio * newSpan
+      onZoomChange(clampZoom(start, start + newSpan))
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchStart.current) {
+        e.preventDefault()
+        const dx = e.touches[0]!.clientX - e.touches[1]!.clientX
+        const dy = e.touches[0]!.clientY - e.touches[1]!.clientY
+        const dist = Math.hypot(dx, dy)
+        const scale = pinchStart.current.distance / Math.max(dist, 1)
+        const z0 = pinchStart.current.zoom
+        const mid = (z0.startMs + z0.endMs) / 2
+        const newSpan = (z0.endMs - z0.startMs) * scale
+        onZoomChange(clampZoom(mid - newSpan / 2, mid + newSpan / 2))
+      }
+    }
+
+    el.addEventListener("wheel", handleWheel, { passive: false })
+    el.addEventListener("touchmove", handleTouchMove, { passive: false })
+    return () => {
+      el.removeEventListener("wheel", handleWheel)
+      el.removeEventListener("touchmove", handleTouchMove)
+    }
+  }, [zoom, onZoomChange])
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX
       const dy = e.touches[0].clientY - e.touches[1].clientY
       pinchStart.current = { distance: Math.hypot(dx, dy), zoom }
-    }
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2 && pinchStart.current) {
-      e.preventDefault()
-      const dx = e.touches[0].clientX - e.touches[1].clientX
-      const dy = e.touches[0].clientY - e.touches[1].clientY
-      const dist = Math.hypot(dx, dy)
-      const scale = pinchStart.current.distance / Math.max(dist, 1)
-      const z0 = pinchStart.current.zoom
-      const mid = (z0.startMs + z0.endMs) / 2
-      const newSpan = (z0.endMs - z0.startMs) * scale
-      onZoomChange(clampZoom(mid - newSpan / 2, mid + newSpan / 2))
     }
   }
 
@@ -144,9 +155,7 @@ export default function TimelineStrip({
           onPointerUp()
           setHoverMs(null)
         }}
-        onWheel={onWheel}
         onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onKeyDown={(e) => {
           const step = e.shiftKey ? 60_000 : 5_000
