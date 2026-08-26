@@ -5,6 +5,8 @@ import { env, getRtspUrl } from "../env.js"
 
 export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
   return [
+    "-fflags", "+genpts+discardcorrupt",
+    "-use_wallclock_as_timestamps", "1",
     "-rtsp_transport", "tcp",
     "-i", getRtspUrl(cameraId),
     "-c:v", "copy",
@@ -16,7 +18,9 @@ export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
     "-segment_time", "60",
     "-segment_atclocktime", "1",
     "-reset_timestamps", "1",
+    "-avoid_negative_ts", "make_zero",
     "-strftime", "1",
+    "-segment_format_options", "movflags=frag_keyframe+empty_moov+default_base_moof",
     join(outputDir, "%Y-%m-%d", "%H-%M-%S.mp4"),
   ]
 }
