@@ -62,6 +62,7 @@ export function vodRouter(deps: VodDeps): Router {
       if (durationSec <= 0) continue
 
       const clampedDuration = Math.max(0.1, Math.min(durationSec, 61))
+      lines.push(`#EXT-X-PROGRAM-DATE-TIME:${new Date(seg.startTs).toISOString()}`)
       lines.push(`#EXTINF:${clampedDuration.toFixed(1)},`)
       lines.push(`/api/statics/recordings/${seg.path}`)
     }
