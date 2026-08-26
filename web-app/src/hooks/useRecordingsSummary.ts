@@ -1,61 +1,75 @@
 import { useEffect, useState } from "react"
-import type { TimeRange } from "../lib/timeline"
+import {
+  MS_PER_DAY,
+  localDayStartMs,
+  rangesFromSegments,
+  type TimeRange,
+} from "../lib/timeline"
 
-interface SummaryHour {
-  hour: number
-  coverageMs: number
-  segmentCount: number
+interface SegmentRow {
+  startTs: number
+  durationMs: number
 }
 
-interface SummaryResponse {
-  cameraId: string
-  day: string
-  hours: SummaryHour[]
-}
-
-function hoursToRanges(hours: SummaryHour[]): TimeRange[] {
-  const ranges: TimeRange[] = []
-  for (const h of hours) {
-    if (h.coverageMs <= 0) continue
-    const startMsOfDay = h.hour * 3_600_000
-    const endMsOfDay = startMsOfDay + h.coverageMs
-    ranges.push({ startMsOfDay, endMsOfDay })
-  }
-  return ranges
-}
+const POLL_MS = 30_000
 
 export function useRecordingsSummary(cameraId: string, day: string) {
   const [ranges, setRanges] = useState<TimeRange[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadedKey, setLoadedKey] = useState("")
+  const key = `${cameraId}:${day}`
+
+  if (loadedKey !== key && !loading) {
+    setLoading(true)
+    setError(null)
+    setRanges([])
+  }
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    let first = true
 
-    fetch(`/api/cameras/${encodeURIComponent(cameraId)}/recordings/summary?day=${day}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return (await res.json()) as SummaryResponse
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setRanges(hoursToRanges(data.hours))
-          setLoading(false)
-        }
-      })
-      .catch((err: Error) => {
-        if (!cancelled) {
-          setError(err.message)
-          setLoading(false)
-        }
-      })
+    const load = () => {
+      const from = localDayStartMs(day)
+      const to = from + MS_PER_DAY
+      if (first) {
+        setLoading(true)
+        setError(null)
+      }
 
+      fetch(`/api/cameras/${encodeURIComponent(cameraId)}/recordings?from=${from}&to=${to}`)
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return (await res.json()) as SegmentRow[]
+        })
+        .then((data) => {
+          if (!cancelled) {
+            setRanges(rangesFromSegments(data, from))
+            setLoadedKey(key)
+            setLoading(false)
+            first = false
+          }
+        })
+        .catch((err: Error) => {
+          if (!cancelled) {
+            if (first) {
+              setError(err.message)
+              setLoadedKey(key)
+              setLoading(false)
+            }
+            first = false
+          }
+        })
+    }
+
+    load()
+    const id = setInterval(load, POLL_MS)
     return () => {
       cancelled = true
+      clearInterval(id)
     }
-  }, [cameraId, day])
+  }, [cameraId, day, key])
 
   return { ranges, loading, error }
 }

@@ -58,3 +58,64 @@ export function daysAround(centerIso: string, radius: number): string[] {
   for (let i = -radius; i <= radius; i++) out.push(addDays(centerIso, i))
   return out
 }
+
+/** Calendar YYYY-MM-DD in the viewer's local timezone. */
+export function localIsoDay(date = new Date()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
+/** Local midnight of an ISO calendar day, as epoch ms. */
+export function localDayStartMs(isoDay: string): number {
+  const [y, m, d] = isoDay.split("-").map(Number)
+  return new Date(y!, m! - 1, d!).getTime()
+}
+
+export function localMsOfDay(date = new Date()): number {
+  return (
+    date.getHours() * 3_600_000 +
+    date.getMinutes() * 60_000 +
+    date.getSeconds() * 1000 +
+    date.getMilliseconds()
+  )
+}
+
+/** Inclusive list from `today - n` through `today`. */
+export function daysBack(todayIso: string, n: number): string[] {
+  const out: string[] = []
+  for (let i = n; i >= 0; i--) out.push(addDays(todayIso, -i))
+  return out
+}
+
+export type RecordingSegment = { startTs: number; durationMs: number }
+
+/** Merge same-day segments into coverage ranges in local ms-of-day. */
+export function rangesFromSegments(
+  segments: RecordingSegment[],
+  dayStartMs: number,
+  gapMs = 2_000,
+): TimeRange[] {
+  const sorted = [...segments].sort((a, b) => a.startTs - b.startTs)
+  const ranges: TimeRange[] = []
+  for (const seg of sorted) {
+    const start = clamp(seg.startTs - dayStartMs, 0, MS_PER_DAY)
+    const end = clamp(seg.startTs + seg.durationMs - dayStartMs, 0, MS_PER_DAY)
+    if (end <= start) continue
+    const last = ranges[ranges.length - 1]
+    if (last && start <= last.endMsOfDay + gapMs) {
+      last.endMsOfDay = Math.max(last.endMsOfDay, end)
+    } else {
+      ranges.push({ startMsOfDay: start, endMsOfDay: end })
+    }
+  }
+  return ranges
+}
+
+/** Playhead to open for a day: latest clip, or "now" if today has no footage yet. */
+export function initialPlayheadMs(ranges: TimeRange[], day: string, now = new Date()): number {
+  if (ranges.length > 0) return ranges[ranges.length - 1]!.startMsOfDay
+  if (day === localIsoDay(now)) return localMsOfDay(now)
+  return 12 * 3_600_000
+}
