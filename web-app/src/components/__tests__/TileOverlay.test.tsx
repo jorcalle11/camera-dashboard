@@ -21,11 +21,4 @@ describe("TileOverlay", () => {
     screen.getByLabelText("Take snapshot").click()
     expect(onSnapshot).toHaveBeenCalled()
   })
-
-  it("calls onHistory when History clicked", () => {
-    const onHistory = vi.fn()
-    render(<TileOverlay camera={CAMERA} state="recording" onHistory={onHistory} />)
-    screen.getByLabelText("Open history").click()
-    expect(onHistory).toHaveBeenCalled()
-  })
 })

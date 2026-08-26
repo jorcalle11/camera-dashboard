@@ -8,10 +8,9 @@ import TileOverlay from "./TileOverlay"
 interface CameraTileProps {
   camera: Camera
   status?: RecorderStatus
-  onHistory?: (cameraId: string) => void
 }
 
-export default function CameraTile({ camera, status, onHistory }: CameraTileProps) {
+export default function CameraTile({ camera, status }: CameraTileProps) {
   const tileRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const { showToast } = useToast()
@@ -39,7 +38,17 @@ export default function CameraTile({ camera, status, onHistory }: CameraTileProp
     try {
       const res = await fetch(`/api/cameras/${camera.id}/snapshots`, { method: "POST" })
       if (!res.ok) throw new Error(`Snapshot failed: ${res.status}`)
-      showToast("Snapshot saved", "success")
+      const { path } = await res.json() as { path: string }
+      const imgRes = await fetch(`/api/statics/recordings/${path}`)
+      if (!imgRes.ok) throw new Error("Failed to download snapshot")
+      const blob = await imgRes.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = path.split("/").pop()!
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast("Snapshot downloaded", "success")
     } catch (err) {
       showToast((err as Error).message, "error")
     }
@@ -52,12 +61,7 @@ export default function CameraTile({ camera, status, onHistory }: CameraTileProp
       className="relative aspect-video overflow-hidden rounded-lg bg-black md:aspect-auto md:h-full"
     >
       <VideoStream cameraId={camera.id} paused={!visible} className="h-full w-full" />
-      <TileOverlay
-        camera={camera}
-        state={state}
-        onSnapshot={takeSnapshot}
-        onHistory={onHistory ? () => onHistory(camera.id) : undefined}
-      />
+      <TileOverlay camera={camera} state={state} onSnapshot={takeSnapshot} />
     </div>
   )
 }

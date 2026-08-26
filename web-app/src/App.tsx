@@ -47,7 +47,7 @@ export default function App() {
       />
       <main className="flex-1 overflow-y-auto pb-14 md:pb-0">
         {view === "live" ? (
-          <LiveGrid status={recorderStatus} onHistory={(id) => openTimeline(id)} />
+          <LiveGrid status={recorderStatus} />
         ) : timelineCameraId ? (
           <TimelinePage
             cameraId={timelineCameraId}
