@@ -24,7 +24,7 @@ export default function TabBar({ view, onChange }: TabBarProps) {
             key={tab.id}
             onClick={() => onChange(tab.id)}
             aria-current={view === tab.id ? "page" : undefined}
-            className={`flex-1 py-3 text-sm font-medium md:flex-none md:px-6 ${
+            className={`flex-1 cursor-pointer py-3 text-sm font-medium md:flex-none md:px-6 ${
               view === tab.id
                 ? "text-blue-600 dark:text-blue-400"
                 : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300"
