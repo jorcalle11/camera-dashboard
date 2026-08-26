@@ -15,6 +15,8 @@ describe("buildFfmpegArgs", () => {
     expect(args).toContain("aac")
     expect(args).not.toContain("-an")
     expect(args).toContain("/recordings/cam1/%Y-%m-%d/%H-%M-%S.mp4")
+    expect(args).toContain("-use_wallclock_as_timestamps")
+    expect(args).toContain("movflags=frag_keyframe+empty_moov+default_base_moof")
   })
 })
 

@@ -1,39 +1,36 @@
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import LiveGrid from "./components/LiveGrid"
 import TabBar, { type View } from "./components/TabBar"
 import TimelinePage, { TIMELINE_CAMERA_KEY } from "./components/TimelinePage"
 import { useCameras } from "./hooks/useCameras"
 import { useRecorderStatus } from "./hooks/useRecorderStatus"
 import { useTheme } from "./hooks/useTheme"
-
-function readStoredCamera(): string | null {
-  try {
-    return sessionStorage.getItem(TIMELINE_CAMERA_KEY)
-  } catch {
-    return null
-  }
-}
+import { cameraIdFromPath, navigate, timelinePath, usePathname } from "./lib/routes"
 
 export default function App() {
-  const [view, setView] = useState<View>("live")
-  const [timelineCameraId, setTimelineCameraId] = useState<string | null>(() => readStoredCamera())
+  const pathname = usePathname()
+  const routeCameraId = cameraIdFromPath(pathname)
   const recorderStatus = useRecorderStatus()
   const { cameras } = useCameras()
   useTheme()
 
+  const view: View = routeCameraId ? "timeline" : "live"
+
   useEffect(() => {
-    if (!timelineCameraId && cameras.length > 0) {
-      setTimelineCameraId(cameras[0]!.id)
-    }
-  }, [cameras, timelineCameraId])
+    if (!routeCameraId) return
+    sessionStorage.setItem(TIMELINE_CAMERA_KEY, routeCameraId)
+  }, [routeCameraId])
 
   const openTimeline = (cameraId?: string) => {
-    const id = cameraId ?? timelineCameraId ?? cameras[0]?.id
-    if (id) {
-      setTimelineCameraId(id)
-      sessionStorage.setItem(TIMELINE_CAMERA_KEY, id)
+    let stored: string | null = null
+    try {
+      stored = sessionStorage.getItem(TIMELINE_CAMERA_KEY)
+    } catch {
+      stored = null
     }
-    setView("timeline")
+    const id = cameraId ?? routeCameraId ?? stored ?? cameras[0]?.id
+    if (!id) return
+    navigate(timelinePath(id))
   }
 
   return (
@@ -42,20 +39,17 @@ export default function App() {
         view={view}
         onChange={(next) => {
           if (next === "timeline") openTimeline()
-          else setView("live")
+          else navigate("/")
         }}
       />
       <main className="flex-1 overflow-y-auto pb-14 md:pb-0">
         {view === "live" ? (
-          <LiveGrid status={recorderStatus} onHistory={(id) => openTimeline(id)} />
-        ) : timelineCameraId ? (
+          <LiveGrid status={recorderStatus} />
+        ) : routeCameraId ? (
           <TimelinePage
-            cameraId={timelineCameraId}
-            onCameraChange={(id) => {
-              setTimelineCameraId(id)
-              sessionStorage.setItem(TIMELINE_CAMERA_KEY, id)
-            }}
-            onBack={() => setView("live")}
+            cameraId={routeCameraId}
+            onCameraChange={(id) => navigate(timelinePath(id))}
+            onBack={() => navigate("/")}
           />
         ) : (
           <p className="p-4 text-neutral-500 dark:text-neutral-400">No cameras configured.</p>

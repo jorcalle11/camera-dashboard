@@ -4,6 +4,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react"
 import type React from "react"
 import { formatMsOfDay } from "../lib/timeline"
@@ -19,11 +20,11 @@ export type PlaybackPlayerHandle = {
 
 interface PlaybackPlayerProps {
   src: string
+  /** Local midnight epoch for converting playlist timestamps to ms-of-day. */
+  dayStartMs: number
   /** Wall-clock position to open when `src` (playlist) changes. */
   initialMsOfDay: number
   playheadMsOfDay: number
-  playing: boolean
-  speed: number
   onTimeUpdate?: (msOfDay: number) => void
   onEnded?: () => void
   onLoadedMetadata?: () => void
@@ -33,10 +34,9 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
   function PlaybackPlayer(
     {
       src,
+      dayStartMs,
       initialMsOfDay,
       playheadMsOfDay,
-      playing,
-      speed,
       onTimeUpdate,
       onEnded,
       onLoadedMetadata,
@@ -48,29 +48,34 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
     const segmentIndexRef = useRef(0)
     const loadGenerationRef = useRef(0)
     const pendingSeekMsRef = useRef<number | null>(null)
+    const playNextRef = useRef(false)
+    const onLoadedMetadataRef = useRef(onLoadedMetadata)
+    const [empty, setEmpty] = useState(!src)
 
-    const applySegment = useCallback(
-      (index: number, seekSec: number, generation: number) => {
-        const el = videoRef.current
-        const seg = segmentsRef.current[index]
-        if (!el || !seg) return
+    onLoadedMetadataRef.current = onLoadedMetadata
 
-        segmentIndexRef.current = index
+    const applySegment = useCallback((index: number, seekSec: number, generation: number) => {
+      const el = videoRef.current
+      const seg = segmentsRef.current[index]
+      if (!el || !seg) return
 
-        const onMeta = () => {
-          el.removeEventListener("loadedmetadata", onMeta)
-          if (generation !== loadGenerationRef.current) return
-          el.currentTime = seekSec
-          onLoadedMetadata?.()
-          if (playing) void el.play().catch(() => {})
+      segmentIndexRef.current = index
+
+      const onMeta = () => {
+        el.removeEventListener("loadedmetadata", onMeta)
+        if (generation !== loadGenerationRef.current) return
+        el.currentTime = seekSec
+        onLoadedMetadataRef.current?.()
+        if (playNextRef.current) {
+          playNextRef.current = false
+          void el.play().catch(() => {})
         }
+      }
 
-        el.addEventListener("loadedmetadata", onMeta)
-        el.src = seg.url
-        el.load()
-      },
-      [onLoadedMetadata, playing],
-    )
+      el.addEventListener("loadedmetadata", onMeta)
+      el.src = seg.url
+      el.load()
+    }, [])
 
     const seekToMsOfDay = useCallback(
       (msOfDay: number) => {
@@ -91,6 +96,7 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
           return
         }
 
+        playNextRef.current = Boolean(videoRef.current && !videoRef.current.paused)
         const generation = ++loadGenerationRef.current
         applySegment(idx, seekSec, generation)
       },
@@ -101,13 +107,21 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
 
     useEffect(() => {
       const el = videoRef.current
-      if (!el || !src) return
+      if (!el) return
+      if (!src) {
+        setEmpty(true)
+        el.removeAttribute("src")
+        el.load()
+        return
+      }
 
       let cancelled = false
       const generation = ++loadGenerationRef.current
       segmentsRef.current = []
       segmentIndexRef.current = 0
       pendingSeekMsRef.current = null
+      playNextRef.current = false
+      setEmpty(false)
 
       void (async () => {
         try {
@@ -116,17 +130,20 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
           const text = await res.text()
           if (cancelled || generation !== loadGenerationRef.current) return
 
-          segmentsRef.current = parseVodPlaylist(text, src)
+          segmentsRef.current = parseVodPlaylist(text, src, { dayStartMs })
           const targetMs = pendingSeekMsRef.current ?? initialMsOfDay
           pendingSeekMsRef.current = null
-          if (segmentsRef.current.length === 0) return
+          if (segmentsRef.current.length === 0) {
+            setEmpty(true)
+            return
+          }
 
           const idx = findSegmentIndexForMs(segmentsRef.current, targetMs)
           const seg = segmentsRef.current[idx >= 0 ? idx : 0]!
           const seekSec = Math.max(0, (targetMs - seg.startMsOfDay) / 1000)
           applySegment(idx >= 0 ? idx : 0, seekSec, generation)
         } catch {
-          /* leave video empty; parent can show coverage status */
+          if (!cancelled) setEmpty(true)
         }
       })()
 
@@ -135,24 +152,12 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
         el.removeAttribute("src")
         el.load()
       }
-    }, [src, initialMsOfDay, applySegment])
-
-    useEffect(() => {
-      const el = videoRef.current
-      if (!el) return
-      if (playing) void el.play().catch(() => {})
-      else el.pause()
-    }, [playing])
-
-    useEffect(() => {
-      const el = videoRef.current
-      if (!el) return
-      el.playbackRate = speed
-    }, [speed])
+    }, [src, dayStartMs, initialMsOfDay, applySegment])
 
     const onVideoEnded = () => {
       const next = segmentIndexRef.current + 1
       if (next < segmentsRef.current.length) {
+        playNextRef.current = true
         const generation = loadGenerationRef.current
         applySegment(next, 0, generation)
         return
@@ -165,19 +170,30 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
         <video
           ref={videoRef as React.RefObject<HTMLVideoElement>}
           className="h-full w-full object-contain"
+          controls
           playsInline
           preload="auto"
           onTimeUpdate={(e) => {
             const v = e.currentTarget
             const seg = segmentsRef.current[segmentIndexRef.current]
             if (!seg) return
-            onTimeUpdate?.(seg.startMsOfDay + v.currentTime * 1000)
+            if (v.currentTime > seg.durationSec + 0.5) {
+              onVideoEnded()
+              return
+            }
+            onTimeUpdate?.(seg.startMsOfDay + Math.min(v.currentTime, seg.durationSec) * 1000)
           }}
           onEnded={onVideoEnded}
         />
-        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/65 px-2 py-0.5 font-mono text-xs text-white tabular-nums">
-          {formatMsOfDay(playheadMsOfDay)}
-        </div>
+        {empty ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-neutral-400">
+            No footage at this time
+          </div>
+        ) : (
+          <div className="pointer-events-none absolute top-2 left-2 rounded bg-black/65 px-2 py-0.5 font-mono text-xs text-white tabular-nums">
+            {formatMsOfDay(playheadMsOfDay)}
+          </div>
+        )}
       </div>
     )
   },

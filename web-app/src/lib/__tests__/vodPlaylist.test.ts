@@ -25,4 +25,16 @@ describe("parseVodPlaylist", () => {
     expect(segs[0]!.url).toContain("/api/statics/recordings/cam1/2026-07-28/19-03-20.mp4")
     expect(segs[1]!.startMsOfDay).toBe((19 * 3600 + 4 * 60 + 3) * 1000)
   })
+
+  it("uses PROGRAM-DATE-TIME relative to local midnight", () => {
+    const dayStartMs = Date.parse("2026-08-26T00:00:00-05:00")
+    const text = `#EXTM3U
+#EXT-X-PROGRAM-DATE-TIME:2026-08-26T19:53:01.000Z
+#EXTINF:60.0,
+/api/statics/recordings/cam1/2026-08-26/19-53-01.mp4
+#EXT-X-ENDLIST`
+    const segs = parseVodPlaylist(text, "/api/recordings/cam1/start/1/end/2/index.m3u8", { dayStartMs })
+    expect(segs).toHaveLength(1)
+    expect(segs[0]!.startMsOfDay).toBe(Date.parse("2026-08-26T19:53:01.000Z") - dayStartMs)
+  })
 })

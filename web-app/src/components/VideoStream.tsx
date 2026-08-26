@@ -27,11 +27,23 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
 
     type StreamElement = HTMLElement & { mode: string; src: string }
     let el: StreamElement | null = null
+    let muteObserver: MutationObserver | null = null
     let lastVideoTime = -1
     let lastAdvanceAt = Date.now()
     let hasAdvanced = false
 
+    const muteInnerVideo = (root: HTMLElement) => {
+      const video =
+        root.querySelector("video") ?? root.shadowRoot?.querySelector("video")
+      if (!video) return false
+      video.muted = true
+      video.defaultMuted = true
+      return true
+    }
+
     const mount = (retrying: boolean) => {
+      muteObserver?.disconnect()
+      muteObserver = null
       container.replaceChildren()
       el = document.createElement("video-stream") as StreamElement
       // MSE first: starts instantly over the proxied WebSocket. WebRTC needs a
@@ -41,6 +53,15 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
       el.style.width = "100%"
       el.style.height = "100%"
       container.appendChild(el)
+      if (!muteInnerVideo(el)) {
+        muteObserver = new MutationObserver(() => {
+          if (el && muteInnerVideo(el)) {
+            muteObserver?.disconnect()
+            muteObserver = null
+          }
+        })
+        muteObserver.observe(el, { childList: true, subtree: true })
+      }
       lastVideoTime = -1
       lastAdvanceAt = Date.now()
       hasAdvanced = false
@@ -78,6 +99,7 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
 
     return () => {
       cancelled = true
+      muteObserver?.disconnect()
       window.clearInterval(watchdog)
       container.replaceChildren()
       el = null

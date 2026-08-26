@@ -4,8 +4,15 @@ export type VodSegment = {
   startMsOfDay: number
 }
 
-/** Wall-clock ms of day from a recording path segment (…/HH-MM-SS.mp4). */
-export function startMsOfDayFromRecordingPath(path: string): number {
+const PDT_PREFIX = "#EXT-X-PROGRAM-DATE-TIME:"
+
+/** Wall-clock ms of day from a recording path (`…/YYYY-MM-DD/HH-MM-SS.mp4`). */
+export function startMsOfDayFromRecordingPath(path: string, dayStartMs?: number): number {
+  const withDate = path.match(/(\d{4}-\d{2}-\d{2})\/(\d{2})-(\d{2})-(\d{2})\.mp4/)
+  if (withDate && dayStartMs != null) {
+    const startTs = Date.parse(`${withDate[1]}T${withDate[2]}:${withDate[3]}:${withDate[4]}Z`)
+    if (Number.isFinite(startTs)) return startTs - dayStartMs
+  }
   const m = path.match(/(\d{2})-(\d{2})-(\d{2})\.mp4/)
   if (!m) return 0
   const h = Number(m[1])
@@ -19,23 +26,43 @@ export function resolvePlaylistMediaUrl(segmentLine: string, manifestSrc: string
   return new URL(segmentLine, window.location.origin).href
 }
 
+export interface ParseVodPlaylistOptions {
+  /** Local midnight epoch; used to convert UTC timestamps to ms-of-day. */
+  dayStartMs?: number
+}
+
 /** Parse a VOD m3u8 whose media entries are progressive MP4 recording files. */
-export function parseVodPlaylist(text: string, manifestSrc: string): VodSegment[] {
+export function parseVodPlaylist(
+  text: string,
+  manifestSrc: string,
+  opts: ParseVodPlaylistOptions = {},
+): VodSegment[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim())
   const segments: VodSegment[] = []
+  let pendingPdt: number | null = null
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (!line?.startsWith("#EXTINF:")) continue
+    if (!line) continue
+    if (line.startsWith(PDT_PREFIX)) {
+      const parsed = Date.parse(line.slice(PDT_PREFIX.length))
+      pendingPdt = Number.isFinite(parsed) ? parsed : null
+      continue
+    }
+    if (!line.startsWith("#EXTINF:")) continue
     const durationSec = Number.parseFloat(line.slice("#EXTINF:".length).split(",")[0] ?? "")
     const urlLine = lines[i + 1]
     if (!urlLine || urlLine.startsWith("#")) continue
     if (!Number.isFinite(durationSec) || durationSec <= 0) continue
 
+    const fromPdt =
+      pendingPdt != null && opts.dayStartMs != null ? pendingPdt - opts.dayStartMs : null
+    pendingPdt = null
+
     segments.push({
       url: resolvePlaylistMediaUrl(urlLine, manifestSrc),
       durationSec,
-      startMsOfDay: startMsOfDayFromRecordingPath(urlLine),
+      startMsOfDay: fromPdt ?? startMsOfDayFromRecordingPath(urlLine, opts.dayStartMs),
     })
   }
 
