@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ToastProvider } from "../../hooks/useToast.tsx"
 import LiveGrid from "../LiveGrid"
 
@@ -17,8 +17,6 @@ class FakeIntersectionObserver {
   unobserve() {}
   disconnect() {}
 }
-vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver)
-
 function mockCameras(payload: unknown, status = 200) {
   vi.stubGlobal(
     "fetch",
@@ -32,7 +30,14 @@ function mockCameras(payload: unknown, status = 200) {
 }
 
 describe("LiveGrid", () => {
-  afterEach(() => vi.unstubAllGlobals())
+  beforeEach(() => {
+    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
 
   it("renders one tile per camera with its name", async () => {
     mockCameras([
@@ -48,6 +53,26 @@ describe("LiveGrid", () => {
     expect(screen.getByText("Garage")).toBeTruthy()
     expect(screen.getByTestId("stream-cam1")).toBeTruthy()
     expect(screen.getByTestId("stream-cam2")).toBeTruthy()
+    const layout = screen.getByTestId("camera-layout")
+    expect(layout.className).toBe("camera-wall")
+    expect(screen.getByTestId("stream-cam1").parentElement?.className).toContain("aspect-video")
+    expect(screen.getByTestId("stream-cam1").parentElement?.className).not.toContain("md:h-full")
+  })
+
+  it("keeps a 16:9 tile for every camera when there are more than four", async () => {
+    mockCameras(
+      Array.from({ length: 6 }, (_, i) => ({ id: `cam${i + 1}`, name: `Camera ${i + 1}` })),
+    )
+    render(
+      <ToastProvider>
+        <LiveGrid />
+      </ToastProvider>,
+    )
+    await waitFor(() => expect(screen.getByText("Camera 6")).toBeTruthy())
+    const layout = screen.getByTestId("camera-layout")
+    expect(layout.className).toBe("camera-wall")
+    expect(layout.children).toHaveLength(6)
+    expect(screen.getByTestId("stream-cam6").parentElement?.className).toContain("aspect-video")
   })
 
   it("shows an error state when cameras fail to load", async () => {

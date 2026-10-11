@@ -14,7 +14,7 @@ export default function LiveGrid({ status = {} }: LiveGridProps) {
   if (cameras.length === 0) return <p className="p-4 text-neutral-500 dark:text-neutral-400">No cameras configured.</p>
 
   return (
-    <div className="grid grid-cols-1 gap-2 p-2 md:h-full md:min-h-0 md:grid-cols-2 md:grid-rows-2 md:gap-3 md:p-3">
+    <div className="camera-wall" data-testid="camera-layout">
       {cameras.map((camera) => (
         <CameraTile key={camera.id} camera={camera} status={status[camera.id]} />
       ))}
