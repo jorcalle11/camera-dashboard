@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process"
-import { createWriteStream, mkdirSync } from "node:fs"
+import { createWriteStream, mkdirSync, statSync, truncateSync } from "node:fs"
 import { join } from "node:path"
 import { env, getRtspUrl } from "../env.js"
 
@@ -35,12 +35,22 @@ function preCreateSegmentDirs(outputDir: string): void {
   mkdirSync(join(outputDir, tomorrow), { recursive: true })
 }
 
+const LOG_ROTATE_BYTES = 10 * 1024 * 1024 // 10MB
+
 export function spawnFfmpeg(cameraId: string, outputDir: string): { process: ChildProcess; logPath: string } {
   mkdirSync(outputDir, { recursive: true })
   preCreateSegmentDirs(outputDir)
   const logDir = join(env.DATA_PATH, "logs")
   mkdirSync(logDir, { recursive: true })
   const logPath = join(logDir, `${cameraId}.log`)
+  try {
+    const st = statSync(logPath)
+    if (st.size > LOG_ROTATE_BYTES) {
+      truncateSync(logPath, 0)
+    }
+  } catch {
+    // ignore if file doesn't exist
+  }
   const args = buildFfmpegArgs(cameraId, outputDir)
   const logStream = createWriteStream(logPath, { flags: "a" })
   const opts: SpawnOptions = {

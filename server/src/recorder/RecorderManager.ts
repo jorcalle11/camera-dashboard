@@ -29,6 +29,7 @@ interface ManagedCamera {
   process: import("node:child_process").ChildProcess | null
   backoffMs: number
   backoffTimer: NodeJS.Timeout | null
+  stableTimer: NodeJS.Timeout | null
 }
 
 export class RecorderManager extends EventEmitter {
@@ -38,6 +39,7 @@ export class RecorderManager extends EventEmitter {
   private baseBackoffMs: number
   private maxBackoffMs: number
   private exiting = new Set<Promise<void>>()
+  private stableMs: number
 
   constructor(opts: RecorderManagerOptions) {
     super()
@@ -45,6 +47,7 @@ export class RecorderManager extends EventEmitter {
     this.outputRoot = opts.outputRoot
     this.baseBackoffMs = opts.baseBackoffMs ?? 1000
     this.maxBackoffMs = opts.maxBackoffMs ?? 60000
+    this.stableMs = 30_000
   }
 
   start(camera: CameraConfig): void {
@@ -56,6 +59,7 @@ export class RecorderManager extends EventEmitter {
       process: null,
       backoffMs: this.baseBackoffMs,
       backoffTimer: null,
+      stableTimer: null,
     }
     this.cameras.set(camera.id, managed)
     this.spawn(managed)
@@ -65,6 +69,7 @@ export class RecorderManager extends EventEmitter {
     const managed = this.cameras.get(cameraId)
     if (!managed) return
     this.clearBackoff(managed)
+    this.clearStable(managed)
     managed.status.state = "stopped"
     if (managed.process && !managed.process.killed) {
       managed.process.kill("SIGTERM")
@@ -99,6 +104,14 @@ export class RecorderManager extends EventEmitter {
     managed.status.restartedAt = Date.now()
     this.emitStatus(managed)
 
+    this.clearStable(managed)
+    managed.stableTimer = setTimeout(() => {
+      managed.stableTimer = null
+      if (managed.status.state === "recording") {
+        managed.backoffMs = this.baseBackoffMs
+      }
+    }, this.stableMs)
+
     const exited = new Promise<void>((resolve) => {
       process.once("exit", () => {
         this.exiting.delete(exited)
@@ -109,6 +122,7 @@ export class RecorderManager extends EventEmitter {
 
     process.on("exit", () => {
       if (managed.status.state === "stopped") return
+      this.clearStable(managed)
       managed.status.restarts += 1
       managed.status.state = "retrying"
       this.emitStatus(managed)
@@ -129,6 +143,13 @@ export class RecorderManager extends EventEmitter {
     if (managed.backoffTimer) {
       clearTimeout(managed.backoffTimer)
       managed.backoffTimer = null
+    }
+  }
+
+  private clearStable(managed: ManagedCamera): void {
+    if (managed.stableTimer) {
+      clearTimeout(managed.stableTimer)
+      managed.stableTimer = null
     }
   }
 
