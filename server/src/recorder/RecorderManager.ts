@@ -37,6 +37,7 @@ export class RecorderManager extends EventEmitter {
   private outputRoot: string
   private baseBackoffMs: number
   private maxBackoffMs: number
+  private exiting = new Set<Promise<void>>()
 
   constructor(opts: RecorderManagerOptions) {
     super()
@@ -72,8 +73,14 @@ export class RecorderManager extends EventEmitter {
     this.emitStatus(managed)
   }
 
-  stopAll(): void {
+  async stopAll(timeoutMs = 10_000): Promise<void> {
     for (const id of this.cameras.keys()) this.stop(id)
+    const pending = [...this.exiting]
+    if (pending.length === 0) return
+    await Promise.race([
+      Promise.all(pending),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+    ])
   }
 
   status(): Record<string, CameraStatus> {
@@ -91,6 +98,14 @@ export class RecorderManager extends EventEmitter {
     managed.status.state = "recording"
     managed.status.restartedAt = Date.now()
     this.emitStatus(managed)
+
+    const exited = new Promise<void>((resolve) => {
+      process.once("exit", () => {
+        this.exiting.delete(exited)
+        resolve()
+      })
+    })
+    this.exiting.add(exited)
 
     process.on("exit", () => {
       if (managed.status.state === "stopped") return

@@ -63,7 +63,7 @@ async function main() {
   function shutdown() {
     logger.info("shutting down...")
     retention.stop()
-    recorder.stopAll()
+    void recorder.stopAll().catch(() => {})
     watcher.close().catch(() => {})
     server.close(() => process.exit(0))
   }

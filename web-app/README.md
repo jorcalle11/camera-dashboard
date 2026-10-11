@@ -7,8 +7,8 @@ React + Tailwind client for the camera dashboard. Mobile-first, two tabs:
   fullscreen. Recorder status badges come from the server's `/api/ws`
   WebSocket.
 - **Timeline** — per-camera playback: date picker, zoomable 24h strip showing
-  recorded coverage, scrubbing, skip, and 1x/2x/4x speed. Video plays through
-  hls.js against the server's HLS VOD endpoint.
+  recorded coverage, scrubbing, skip, and playback speed. Video plays from
+  the server's HLS VOD endpoint.
 
 Light/dark theme with a manual switcher (`useTheme` / `ThemeSwitcher`).
 

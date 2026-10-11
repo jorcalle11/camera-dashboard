@@ -16,6 +16,7 @@ import {
 
 export type PlaybackPlayerHandle = {
   seekToMsOfDay: (msOfDay: number) => void
+  videoElement?: HTMLVideoElement | null
 }
 
 interface PlaybackPlayerProps {
@@ -103,7 +104,7 @@ const PlaybackPlayer = forwardRef<PlaybackPlayerHandle, PlaybackPlayerProps>(
       [applySegment],
     )
 
-    useImperativeHandle(ref, () => ({ seekToMsOfDay }), [seekToMsOfDay])
+    useImperativeHandle(ref, () => ({ seekToMsOfDay, videoElement: videoRef.current }), [seekToMsOfDay])
 
     useEffect(() => {
       const el = videoRef.current

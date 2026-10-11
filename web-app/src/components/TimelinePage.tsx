@@ -13,6 +13,7 @@ import CameraSelect from "./CameraSelect"
 import DateSelect from "./DateSelect"
 import PlaybackPlayer, { type PlaybackPlayerHandle } from "./PlaybackPlayer"
 import TimelineStrip, { type ZoomWindow } from "./TimelineStrip"
+import TransportBar, { type PlaybackSpeed } from "./TransportBar"
 
 export const TIMELINE_CAMERA_KEY = "timeline.cameraId"
 
@@ -36,9 +37,12 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
   const [windowStartMsOfDay, setWindowStartMsOfDay] = useState(12 * 3600 * 1000)
   const [zoom, setZoom] = useState<ZoomWindow>({ startMs: 0, endMs: MS_PER_DAY })
   const playerRef = useRef<PlaybackPlayerHandle>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const scrubbing = useRef(false)
   const snappedKey = useRef("")
   const [readyKey, setReadyKey] = useState("")
+  const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState<PlaybackSpeed>(1)
 
   const { ranges, loading: summaryLoading, error: summaryError } = useRecordingsSummary(cameraId, day)
   const dayStartMs = localDayStartMs(day)
@@ -130,8 +134,46 @@ export default function TimelinePage({ cameraId, onCameraChange, onBack }: Timel
             if (scrubbing.current) return
             setPlayheadMsOfDay(clamp(msOfDay, 0, MS_PER_DAY))
           }}
+          onLoadedMetadata={() => {
+            const v = (playerRef.current as unknown as { videoElement?: HTMLVideoElement })?.videoElement ?? null
+            videoRef.current = v
+            if (v) v.playbackRate = speed
+          }}
         />
       </div>
+
+      <TransportBar
+        playing={playing}
+        speed={speed}
+        onTogglePlay={() => {
+          const v = videoRef.current
+          if (!v) return
+          if (v.paused) {
+            void v.play().then(() => setPlaying(true)).catch(() => {})
+          } else {
+            v.pause()
+            setPlaying(false)
+          }
+        }}
+        onSkip={(deltaSec) => {
+          const v = videoRef.current
+          if (v) v.currentTime = Math.max(0, v.currentTime + deltaSec)
+          else playerRef.current?.seekToMsOfDay(clamp(playheadMsOfDay + deltaSec * 1000, 0, MS_PER_DAY))
+        }}
+        onCycleSpeed={() => {
+          const next: PlaybackSpeed = speed === 1 ? 2 : speed === 2 ? 4 : 1
+          setSpeed(next)
+          if (videoRef.current) videoRef.current.playbackRate = next
+        }}
+        onFullscreen={() => {
+          const el = playerRef.current as unknown as { videoElement?: HTMLVideoElement } | null
+          const v = el?.videoElement ?? videoRef.current
+          const container = v?.parentElement
+          if (!container) return
+          if (document.fullscreenElement) void document.exitFullscreen()
+          else void container.requestFullscreen()
+        }}
+      />
 
       <div className="px-3 text-sm text-neutral-500 dark:text-neutral-400">
         {ranges.length > 0 ? (

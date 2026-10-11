@@ -61,11 +61,13 @@ export interface IndexSegmentsOptions {
 export async function indexSegments(opts: IndexSegmentsOptions): Promise<void> {
   const { db, recordingsRoot, probeFn = probeSegment } = opts
   const insert = db.prepare(
-    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes, corrupt)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes, corrupt, mtime_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(path) DO UPDATE SET
-       duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes, corrupt=excluded.corrupt`,
+       duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes,
+       corrupt=excluded.corrupt, mtime_ms=excluded.mtime_ms`,
   )
+  const existing = db.prepare("SELECT size_bytes, mtime_ms FROM segments WHERE path = ?")
   const deleteStmt = db.prepare("DELETE FROM segments WHERE path = ?")
 
   const pattern = join(recordingsRoot, "*", "*", "*.mp4")
@@ -79,8 +81,14 @@ export async function indexSegments(opts: IndexSegmentsOptions): Promise<void> {
       const rel = fullPath.slice(recordingsRoot.length + 1)
       const parsed = parseSegmentPath(rel)
       if (!parsed) continue
+      const st = statSync(fullPath)
+      const row = existing.get(rel) as { size_bytes: number; mtime_ms: number } | undefined
+      if (row && row.size_bytes === st.size && row.mtime_ms === st.mtimeMs) {
+        onDisk.add(rel)
+        continue
+      }
       const probe = await probeFn(fullPath)
-      insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, rel, probe.sizeBytes, probe.corrupt ? 1 : 0)
+      insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, rel, probe.sizeBytes, probe.corrupt ? 1 : 0, st.mtimeMs)
       onDisk.add(rel)
     }
   })
@@ -107,13 +115,15 @@ export async function upsertSegmentFromPath(
   const parsed = parseSegmentPath(relativePath)
   if (!parsed) return false
   const insert = db.prepare(
-    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes, corrupt)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes, corrupt, mtime_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(path) DO UPDATE SET
-       duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes, corrupt=excluded.corrupt`,
+       duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes,
+       corrupt=excluded.corrupt, mtime_ms=excluded.mtime_ms`,
   )
   const probe = await probeFn(join(recordingsRoot, relativePath))
-  insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, relativePath, probe.sizeBytes, probe.corrupt ? 1 : 0)
+  const st = statSync(join(recordingsRoot, relativePath))
+  insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, relativePath, probe.sizeBytes, probe.corrupt ? 1 : 0, st.mtimeMs)
   return true
 }
 

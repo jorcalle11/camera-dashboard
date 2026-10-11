@@ -53,16 +53,21 @@ describe("syncCameras", () => {
     expect(row).toEqual({ id: "cam1", name: "Front Door", enabled: 1 })
   })
 
-  it("updates names and disables missing cameras", () => {
+const YAML2 = `
+webrtc_candidate: \${HOST_IP}:8555
+cameras:
+  - id: cam2
+    name: Back
+    url: \${CAM2_RTSP_URL}
+    enabled: true
+    retention_days: 7
+`
+  it("deletes cameras removed from config", () => {
     const cfg = loadServerConfig(YAML)
     syncCameras(db, cfg)
-    const updated = loadServerConfig(YAML.replace("Front Door", "Porch"))
-    syncCameras(db, updated)
-    const row = db.prepare("SELECT name, enabled FROM cameras WHERE id=?").get("cam1") as {
-      name: string
-      enabled: number
-    }
-    expect(row.name).toBe("Porch")
-    expect(row.enabled).toBe(1)
+    const cfg2 = loadServerConfig(YAML2)
+    syncCameras(db, cfg2)
+    const rows = db.prepare("SELECT id FROM cameras ORDER BY id").all() as { id: string }[]
+    expect(rows).toEqual([{ id: "cam2" }])
   })
 })

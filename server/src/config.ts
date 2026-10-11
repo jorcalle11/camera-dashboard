@@ -65,4 +65,13 @@ export function syncCameras(db: Database.Database, config: AppConfig): void {
   for (const cam of config.cameras) {
     insert.run(cam.id, cam.name, cam.enabled ? 1 : 0, now)
   }
+
+  // Drop cameras that were removed from cameras.yml so stale tiles do not
+  // linger in the UI. Segments and snapshots cascade.
+  const deleteStmt = db.prepare("DELETE FROM cameras WHERE id = ?")
+  const configured = new Set(config.cameras.map((cam) => cam.id))
+  const rows = db.prepare("SELECT id FROM cameras").all() as { id: string }[]
+  for (const { id } of rows) {
+    if (!configured.has(id)) deleteStmt.run(id)
+  }
 }
