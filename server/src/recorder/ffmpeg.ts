@@ -11,6 +11,8 @@ export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
     "-use_wallclock_as_timestamps", "1",
     "-rtsp_transport", "tcp",
     "-i", getRtspUrl(cameraId),
+    "-map", "0:v:0",
+    "-map", "0:a:0?",
     "-c:v", "copy",
     "-c:a", "aac",
     "-b:a", "64k",
