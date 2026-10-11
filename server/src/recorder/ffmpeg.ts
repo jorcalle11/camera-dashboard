@@ -1,10 +1,12 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { createWriteStream, mkdirSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { env, getRtspUrl } from "../env.js"
 
 export function buildFfmpegArgs(cameraId: string, outputDir: string): string[] {
   return [
+    "-nostats",
+    "-loglevel", "warning",
     "-fflags", "+genpts+discardcorrupt",
     "-use_wallclock_as_timestamps", "1",
     "-rtsp_transport", "tcp",
@@ -36,7 +38,7 @@ function preCreateSegmentDirs(outputDir: string): void {
 export function spawnFfmpeg(cameraId: string, outputDir: string): { process: ChildProcess; logPath: string } {
   mkdirSync(outputDir, { recursive: true })
   preCreateSegmentDirs(outputDir)
-  const logDir = dirname(outputDir)
+  const logDir = join(env.DATA_PATH, "logs")
   mkdirSync(logDir, { recursive: true })
   const logPath = join(logDir, `${cameraId}.log`)
   const args = buildFfmpegArgs(cameraId, outputDir)

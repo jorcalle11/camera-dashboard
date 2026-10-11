@@ -9,6 +9,9 @@ describe("buildFfmpegArgs", () => {
   it("outputs to segmented path", () => {
     const args = buildFfmpegArgs("cam1", "/recordings/cam1")
     expect(args).toContain("rtsp://go2rtc:8554/cam1")
+    expect(args).toContain("-nostats")
+    expect(args).toContain("-loglevel")
+    expect(args).toContain("warning")
     expect(args).toContain("-c:v")
     expect(args).toContain("copy")
     expect(args).toContain("-c:a")
@@ -21,11 +24,12 @@ describe("buildFfmpegArgs", () => {
 })
 
 describe("spawnFfmpeg", () => {
-  it("spawns ffmpeg with log redirection", () => {
+  it("spawns ffmpeg with log redirection outside the recordings directory", () => {
     const proc = new EventEmitter() as unknown as import("node:child_process").ChildProcess
     ;(spawn as unknown as ReturnType<typeof vi.fn>).mockReturnValue(proc)
     const result = spawnFfmpeg("cam1", "/recordings/cam1")
     expect(spawn).toHaveBeenCalledWith("ffmpeg", expect.arrayContaining(["-i", "rtsp://go2rtc:8554/cam1"]), expect.any(Object))
     expect(result.process).toBe(proc)
+    expect(result.logPath).toBe("/data/logs/cam1.log")
   })
 })
