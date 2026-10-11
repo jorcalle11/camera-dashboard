@@ -18,7 +18,7 @@ export function recordingsRouter(deps: RecordingsDeps): Router {
       .prepare(
         `SELECT camera_id AS cameraId, start_ts AS startTs, duration_ms AS durationMs, path, size_bytes AS sizeBytes
          FROM segments
-         WHERE camera_id = ? AND start_ts >= ? AND start_ts <= ?
+         WHERE camera_id = ? AND start_ts >= ? AND start_ts <= ? AND corrupt = 0
          ORDER BY start_ts ASC`,
       )
       .all(camera, from, to)
@@ -47,6 +47,7 @@ export function recordingsRouter(deps: RecordingsDeps): Router {
           COUNT(*) AS segmentCount
         FROM segments
         WHERE camera_id = ?
+          AND corrupt = 0
           AND start_ts + duration_ms > ?
           AND start_ts < ?
         GROUP BY hour

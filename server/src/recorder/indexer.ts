@@ -14,6 +14,7 @@ const PROBE_CONCURRENCY = 8
 export interface SegmentProbe {
   durationMs: number
   sizeBytes: number
+  corrupt: boolean
 }
 
 export function parseSegmentPath(relativePath: string): { cameraId: string; startTs: number } | null {
@@ -24,25 +25,31 @@ export function parseSegmentPath(relativePath: string): { cameraId: string; star
   return { cameraId, startTs }
 }
 
-async function probeDurationMs(path: string): Promise<number> {
+interface ProbeResult {
+  durationMs: number
+  corrupt: boolean
+}
+
+async function probeVideo(path: string): Promise<ProbeResult> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout, stderr } = await execFileAsync(
       "ffprobe",
       ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", path],
       { timeout: 10_000, windowsHide: true },
     )
     const seconds = Number.parseFloat(stdout.trim())
-    if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds * 1000)
+    const corrupt = stderr.trim().length > 0
+    if (Number.isFinite(seconds) && seconds > 0) return { durationMs: Math.round(seconds * 1000), corrupt }
   } catch {
     // unreadable or still-growing file — fall back to the nominal segment length
   }
-  return FALLBACK_DURATION_MS
+  return { durationMs: FALLBACK_DURATION_MS, corrupt: true }
 }
 
 export async function probeSegment(path: string): Promise<SegmentProbe> {
   const { size } = statSync(path)
-  const durationMs = await probeDurationMs(path)
-  return { durationMs, sizeBytes: size }
+  const { durationMs, corrupt } = await probeVideo(path)
+  return { durationMs, sizeBytes: size, corrupt }
 }
 
 export interface IndexSegmentsOptions {
@@ -54,9 +61,10 @@ export interface IndexSegmentsOptions {
 export async function indexSegments(opts: IndexSegmentsOptions): Promise<void> {
   const { db, recordingsRoot, probeFn = probeSegment } = opts
   const insert = db.prepare(
-    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(path) DO UPDATE SET duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes`,
+    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes, corrupt)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(path) DO UPDATE SET
+       duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes, corrupt=excluded.corrupt`,
   )
   const deleteStmt = db.prepare("DELETE FROM segments WHERE path = ?")
 
@@ -72,7 +80,7 @@ export async function indexSegments(opts: IndexSegmentsOptions): Promise<void> {
       const parsed = parseSegmentPath(rel)
       if (!parsed) continue
       const probe = await probeFn(fullPath)
-      insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, rel, probe.sizeBytes)
+      insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, rel, probe.sizeBytes, probe.corrupt ? 1 : 0)
       onDisk.add(rel)
     }
   })
@@ -99,12 +107,13 @@ export async function upsertSegmentFromPath(
   const parsed = parseSegmentPath(relativePath)
   if (!parsed) return false
   const insert = db.prepare(
-    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(path) DO UPDATE SET duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes`,
+    `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes, corrupt)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(path) DO UPDATE SET
+       duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes, corrupt=excluded.corrupt`,
   )
   const probe = await probeFn(join(recordingsRoot, relativePath))
-  insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, relativePath, probe.sizeBytes)
+  insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, relativePath, probe.sizeBytes, probe.corrupt ? 1 : 0)
   return true
 }
 

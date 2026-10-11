@@ -30,13 +30,24 @@ describe("migrate", () => {
     const db = getDb(join(dir, "nvr.db"))
     migrate(db)
     const row = db.prepare("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").get() as { version: number }
-    expect(row.version).toBe(1)
+    expect(row.version).toBe(2)
   })
 
   it("is idempotent", () => {
     const db = getDb(join(dir, "nvr.db"))
     migrate(db)
     migrate(db)
-    expect(db.prepare("SELECT COUNT(*) AS c FROM schema_migrations").get() as { c: number }).toEqual({ c: 1 })
+    expect(db.prepare("SELECT COUNT(*) AS c FROM schema_migrations").get() as { c: number }).toEqual({ c: 2 })
+  })
+
+  it("adds the corrupt column to segments", () => {
+    const db = getDb(join(dir, "nvr.db"))
+    migrate(db)
+    const columns = db
+      .prepare("PRAGMA table_info(segments)")
+      .all() as { name: string; dflt_value: string | null }[]
+    const corrupt = columns.find((c) => c.name === "corrupt")
+    expect(corrupt).toBeDefined()
+    expect(corrupt!.dflt_value).toBe("0")
   })
 })

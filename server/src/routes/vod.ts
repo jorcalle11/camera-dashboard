@@ -27,6 +27,7 @@ export function vodRouter(deps: VodDeps): Router {
         `SELECT start_ts AS startTs, duration_ms AS durationMs, path
          FROM segments
          WHERE camera_id = ?
+           AND corrupt = 0
            AND start_ts + duration_ms > ?
            AND start_ts < ?
          ORDER BY start_ts ASC`,
