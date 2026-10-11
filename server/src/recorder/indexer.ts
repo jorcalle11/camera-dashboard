@@ -2,7 +2,14 @@ import type Database from "better-sqlite3"
 import { globSync } from "node:fs"
 import { statSync } from "node:fs"
 import { join } from "node:path"
+import { execFile } from "node:child_process"
+import { promisify } from "node:util"
 import chokidar from "chokidar"
+
+const execFileAsync = promisify(execFile)
+
+const FALLBACK_DURATION_MS = 60_000
+const PROBE_CONCURRENCY = 8
 
 export interface SegmentProbe {
   durationMs: number
@@ -17,18 +24,34 @@ export function parseSegmentPath(relativePath: string): { cameraId: string; star
   return { cameraId, startTs }
 }
 
-export function probeSegment(path: string): SegmentProbe {
+async function probeDurationMs(path: string): Promise<number> {
+  try {
+    const { stdout } = await execFileAsync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", path],
+      { timeout: 10_000, windowsHide: true },
+    )
+    const seconds = Number.parseFloat(stdout.trim())
+    if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds * 1000)
+  } catch {
+    // unreadable or still-growing file — fall back to the nominal segment length
+  }
+  return FALLBACK_DURATION_MS
+}
+
+export async function probeSegment(path: string): Promise<SegmentProbe> {
   const { size } = statSync(path)
-  return { durationMs: 60000, sizeBytes: size }
+  const durationMs = await probeDurationMs(path)
+  return { durationMs, sizeBytes: size }
 }
 
 export interface IndexSegmentsOptions {
   db: Database.Database
   recordingsRoot: string
-  probeFn?: (path: string) => SegmentProbe
+  probeFn?: (path: string) => Promise<SegmentProbe>
 }
 
-export function indexSegments(opts: IndexSegmentsOptions): void {
+export async function indexSegments(opts: IndexSegmentsOptions): Promise<void> {
   const { db, recordingsRoot, probeFn = probeSegment } = opts
   const insert = db.prepare(
     `INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes)
@@ -37,16 +60,23 @@ export function indexSegments(opts: IndexSegmentsOptions): void {
   )
   const deleteStmt = db.prepare("DELETE FROM segments WHERE path = ?")
 
-  const onDisk = new Set<string>()
   const pattern = join(recordingsRoot, "*", "*", "*.mp4")
-  for (const fullPath of globSync(pattern)) {
-    const rel = fullPath.slice(recordingsRoot.length + 1)
-    const parsed = parseSegmentPath(rel)
-    if (!parsed) continue
-    const probe = probeFn(fullPath)
-    insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, rel, probe.sizeBytes)
-    onDisk.add(rel)
-  }
+  const paths = globSync(pattern)
+  const onDisk = new Set<string>()
+
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(PROBE_CONCURRENCY, paths.length) }, async () => {
+    while (cursor < paths.length) {
+      const fullPath = paths[cursor++]!
+      const rel = fullPath.slice(recordingsRoot.length + 1)
+      const parsed = parseSegmentPath(rel)
+      if (!parsed) continue
+      const probe = await probeFn(fullPath)
+      insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, rel, probe.sizeBytes)
+      onDisk.add(rel)
+    }
+  })
+  await Promise.all(workers)
 
   const rows = db.prepare("SELECT path FROM segments").all() as { path: string }[]
   for (const { path } of rows) {
@@ -57,15 +87,15 @@ export function indexSegments(opts: IndexSegmentsOptions): void {
 export interface WatchSegmentsOptions {
   db: Database.Database
   recordingsRoot: string
-  probeFn?: (path: string) => SegmentProbe
+  probeFn?: (path: string) => Promise<SegmentProbe>
 }
 
-export function upsertSegmentFromPath(
+export async function upsertSegmentFromPath(
   db: Database.Database,
   recordingsRoot: string,
   relativePath: string,
-  probeFn: (path: string) => SegmentProbe = probeSegment,
-): boolean {
+  probeFn: (path: string) => Promise<SegmentProbe> = probeSegment,
+): Promise<boolean> {
   const parsed = parseSegmentPath(relativePath)
   if (!parsed) return false
   const insert = db.prepare(
@@ -73,7 +103,7 @@ export function upsertSegmentFromPath(
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(path) DO UPDATE SET duration_ms=excluded.duration_ms, size_bytes=excluded.size_bytes`,
   )
-  const probe = probeFn(join(recordingsRoot, relativePath))
+  const probe = await probeFn(join(recordingsRoot, relativePath))
   insert.run(parsed.cameraId, parsed.startTs, probe.durationMs, relativePath, probe.sizeBytes)
   return true
 }
@@ -90,11 +120,9 @@ export function watchSegments(opts: WatchSegmentsOptions): chokidar.FSWatcher {
   // so this is the completed file — not a guessed previous 60s path.
   watcher.on("add", (fullPath) => {
     const rel = fullPath.slice(recordingsRoot.length + 1)
-    try {
-      upsertSegmentFromPath(db, recordingsRoot, rel, probeFn)
-    } catch {
+    void upsertSegmentFromPath(db, recordingsRoot, rel, probeFn).catch(() => {
       // file may have been deleted between the event and the probe
-    }
+    })
   })
 
   return watcher

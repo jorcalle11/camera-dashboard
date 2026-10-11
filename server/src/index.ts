@@ -22,7 +22,7 @@ async function main() {
   const config = loadServerConfig(yamlText)
   syncCameras(db, config)
 
-  indexSegments({ db, recordingsRoot: env.RECORDINGS_PATH })
+  await indexSegments({ db, recordingsRoot: env.RECORDINGS_PATH })
   const watcher = watchSegments({ db, recordingsRoot: env.RECORDINGS_PATH })
 
   await waitForGo2rtc(env.GO2RTC_URL)

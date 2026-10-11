@@ -14,12 +14,13 @@ describe("parseSegmentPath", () => {
 })
 
 describe("probeSegment", () => {
-  it("returns duration and size", () => {
+  it("returns size and falls back to nominal duration for unreadable files", async () => {
     const dir = mkdtempSync(join(tmpdir(), "nvr-probe-"))
     const path = join(dir, "dummy.mp4")
     writeFileSync(path, Buffer.alloc(1024))
-    const result = probeSegment(path)
+    const result = await probeSegment(path)
     expect(result.sizeBytes).toBe(1024)
+    expect(result.durationMs).toBe(60000)
     rmSync(dir, { recursive: true, force: true })
   })
 })
@@ -37,27 +38,27 @@ describe("indexSegments", () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it("indexes existing segment files", () => {
+  it("indexes existing segment files", async () => {
     const recDir = join(dir, "recordings", "cam1", "2026-07-21")
     mkdirSync(recDir, { recursive: true })
     writeFileSync(join(recDir, "14-30-00.mp4"), Buffer.alloc(2048))
-    indexSegments({ db, recordingsRoot: join(dir, "recordings"), probeFn: () => ({ durationMs: 60000, sizeBytes: 2048 }) })
+    await indexSegments({ db, recordingsRoot: join(dir, "recordings"), probeFn: async () => ({ durationMs: 60000, sizeBytes: 2048 }) })
     const rows = db.prepare("SELECT * FROM segments").all() as unknown[]
     expect(rows).toHaveLength(1)
   })
 
-  it("removes rows for missing files", () => {
+  it("removes rows for missing files", async () => {
     db.prepare("INSERT INTO segments (camera_id, start_ts, duration_ms, path, size_bytes) VALUES (?, ?, ?, ?, ?)").run(
       "cam1", new Date("2026-07-21T14:30:00").getTime(), 60000, "cam1/2026-07-21/14-30-00.mp4", 100,
     )
-    indexSegments({ db, recordingsRoot: join(dir, "recordings"), probeFn: () => ({ durationMs: 60000, sizeBytes: 2048 }) })
+    await indexSegments({ db, recordingsRoot: join(dir, "recordings"), probeFn: async () => ({ durationMs: 60000, sizeBytes: 2048 }) })
     const rows = db.prepare("SELECT * FROM segments").all() as unknown[]
     expect(rows).toHaveLength(0)
   })
 })
 
 describe("upsertSegmentFromPath", () => {
-  it("indexes the completed file, not a guessed previous path", () => {
+  it("indexes the completed file, not a guessed previous path", async () => {
     const dir = mkdtempSync(join(tmpdir(), "nvr-upsert-"))
     const db = getDb(join(dir, "nvr.db"))
     migrate(db)
@@ -65,7 +66,7 @@ describe("upsertSegmentFromPath", () => {
     const recDir = join(dir, "recordings", "cam1", "2026-08-26")
     mkdirSync(recDir, { recursive: true })
     writeFileSync(join(recDir, "19-53-01.mp4"), Buffer.alloc(2048))
-    const ok = upsertSegmentFromPath(db, join(dir, "recordings"), "cam1/2026-08-26/19-53-01.mp4", () => ({
+    const ok = await upsertSegmentFromPath(db, join(dir, "recordings"), "cam1/2026-08-26/19-53-01.mp4", async () => ({
       durationMs: 60000,
       sizeBytes: 2048,
     }))
