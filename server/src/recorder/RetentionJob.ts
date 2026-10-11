@@ -42,6 +42,7 @@ export class RetentionJob {
     for (const cam of cameras) {
       totalDeleted += this.enforceAgeRetention(cam)
       totalDeleted += this.enforceSizeRetention(cam)
+      totalDeleted += this.enforceSnapshotAgeRetention(cam)
     }
 
     totalDeleted += this.enforceDiskRetention()
@@ -131,6 +132,39 @@ export class RetentionJob {
     return deleted
   }
 
+  private enforceSnapshotAgeRetention(cam: CameraConfig): number {
+    const { db, recordingsRoot } = this.deps
+    const cutoffMs = Date.now() - cam.retentionDays * MS_PER_DAY
+
+    const snapshots = db
+      .prepare(
+        `SELECT id, path FROM snapshots
+         WHERE camera_id = ? AND ts < ?
+         ORDER BY ts ASC`,
+      )
+      .all(cam.id, cutoffMs) as { id: number; path: string }[]
+
+    const deleteRow = db.prepare("DELETE FROM snapshots WHERE id = ?")
+    let deleted = 0
+
+    for (const snap of snapshots) {
+      try {
+        unlinkSync(join(recordingsRoot, snap.path))
+        deleteRow.run(snap.id)
+        deleted++
+      } catch (err: unknown) {
+        logger.warn({ path: snap.path, err }, "failed to delete snapshot")
+      }
+    }
+
+    if (deleted > 0) {
+      this.pruneEmptyFolders(`snapshots/${cam.id}`, recordingsRoot)
+      logger.info({ cameraId: cam.id, deleted, reason: "snapshot-age" }, "retention deleted snapshots")
+    }
+
+    return deleted
+  }
+
   private enforceDiskRetention(): number {
     const { db, recordingsRoot, diskFreeThresholdGb } = this.deps
     const thresholdBytes = diskFreeThresholdGb * BYTES_PER_GB
@@ -155,8 +189,11 @@ export class RetentionJob {
       .all() as { id: number; path: string; sizeBytes: number; cameraId: string }[]
 
     const deleteRow = db.prepare("DELETE FROM segments WHERE id = ?")
+    const deleteSnapshotRow = db.prepare("DELETE FROM snapshots WHERE id = ?")
     let freed = 0
     let deleted = 0
+    const deletedCameraIds = new Set<string>()
+    const deletedSnapshotCameras = new Set<string>()
 
     for (const seg of segments) {
       if (freeBytes + freed >= thresholdBytes) break
@@ -165,17 +202,47 @@ export class RetentionJob {
         deleteRow.run(seg.id)
         freed += seg.sizeBytes
         deleted++
+        deletedCameraIds.add(seg.cameraId)
       } catch (err: unknown) {
         logger.warn({ path: seg.path, err }, "failed to delete segment")
       }
     }
 
     if (deleted > 0) {
-      const affectedCameras = new Set(segments.slice(0, deleted).map((s) => s.cameraId))
-      for (const camId of affectedCameras) {
+      for (const camId of deletedCameraIds) {
         this.pruneEmptyFolders(camId, recordingsRoot)
       }
       logger.info({ deleted, freedBytes: freed, reason: "disk" }, "retention deleted segments")
+    }
+
+    if (freeBytes + freed >= thresholdBytes) return deleted
+
+    const snapshots = db
+      .prepare(
+        `SELECT id, path, size_bytes AS sizeBytes, camera_id AS cameraId
+         FROM snapshots
+         ORDER BY ts ASC`,
+      )
+      .all() as { id: number; path: string; sizeBytes: number; cameraId: string }[]
+
+    for (const snap of snapshots) {
+      if (freeBytes + freed >= thresholdBytes) break
+      try {
+        unlinkSync(join(recordingsRoot, snap.path))
+        deleteSnapshotRow.run(snap.id)
+        freed += snap.sizeBytes
+        deleted++
+        deletedSnapshotCameras.add(snap.cameraId)
+      } catch (err: unknown) {
+        logger.warn({ path: snap.path, err }, "failed to delete snapshot")
+      }
+    }
+
+    if (deletedSnapshotCameras.size > 0) {
+      for (const camId of deletedSnapshotCameras) {
+        this.pruneEmptyFolders(`snapshots/${camId}`, recordingsRoot)
+      }
+      logger.info({ deleted: deletedSnapshotCameras.size, freedBytes: freed, reason: "disk" }, "retention deleted snapshots")
     }
 
     return deleted
@@ -191,9 +258,14 @@ export class RetentionJob {
           const entries = readdirSync(dayDir)
           if (entries.length === 0) rmdirSync(dayDir)
         } catch {
-          // ignore
+          // not a directory
         }
       }
+    } catch {
+      // camera dir may not exist
+    }
+    try {
+      if (readdirSync(camDir).length === 0) rmdirSync(camDir)
     } catch {
       // camera dir may not exist
     }

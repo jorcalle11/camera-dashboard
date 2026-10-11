@@ -19,7 +19,25 @@ env:
   IMAGE_PREFIX: ghcr.io/jorcalle11/camera-dashboard
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run tests
+        env:
+          RECORDINGS_PATH: /tmp/recordings
+          DATA_PATH: /tmp/data
+        run: |
+          touch .env
+          docker compose run --rm --no-deps cameras-setup npm install
+          docker compose run --rm --no-deps web-app npm install
+          docker compose run --rm --no-deps server npm test
+          docker compose run --rm --no-deps cameras-setup npm test
+          docker compose run --rm --no-deps web-app npm test
+
   release:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -1,5 +1,5 @@
 import Database from "better-sqlite3"
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -20,9 +20,11 @@ export function migrate(db: Database.Database): void {
   )
 
   const migrationsDir = join(fileURLToPath(import.meta.url), "..", "migrations")
-  const migration = readFileSync(join(migrationsDir, "001-initial.sql"), "utf8")
-  if (!applied.has(1)) {
-    db.exec(migration)
-    db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)").run(1, Date.now())
+  const insertMigration = db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)")
+  for (const file of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
+    const version = Number.parseInt(file, 10)
+    if (!Number.isFinite(version) || applied.has(version)) continue
+    db.exec(readFileSync(join(migrationsDir, file), "utf8"))
+    insertMigration.run(version, Date.now())
   }
 }

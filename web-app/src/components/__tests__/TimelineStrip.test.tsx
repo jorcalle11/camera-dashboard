@@ -4,7 +4,20 @@ import TimelineStrip from "../TimelineStrip"
 import { MS_PER_DAY } from "../../lib/timeline"
 
 describe("TimelineStrip", () => {
-  it("jumps playhead on click", () => {
+it("jumps playhead on click", () => {
+    const rect = {
+      left: 0,
+      width: 100,
+      top: 0,
+      height: 40,
+      right: 100,
+      bottom: 40,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(rect)
+
     const onPlayheadChange = vi.fn()
     const onZoomChange = vi.fn()
     const { container } = render(
@@ -18,19 +31,7 @@ describe("TimelineStrip", () => {
     )
 
     const slider = container.querySelector('[role="slider"]')!
-    vi.spyOn(slider, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      width: 100,
-      top: 0,
-      height: 40,
-      right: 100,
-      bottom: 40,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    })
-
-    fireEvent.pointerDown(slider, { clientX: 50 })
+    fireEvent(slider, new MouseEvent("pointerdown", { bubbles: true, clientX: 50 }))
     expect(onPlayheadChange).toHaveBeenCalled()
     const ms = onPlayheadChange.mock.calls[0]![0] as number
     expect(Number.isFinite(ms)).toBe(true)

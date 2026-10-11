@@ -17,18 +17,15 @@ export function useRecordingsSummary(cameraId: string, day: string) {
   const [ranges, setRanges] = useState<TimeRange[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [loadedKey, setLoadedKey] = useState("")
   const key = `${cameraId}:${day}`
-
-  if (loadedKey !== key && !loading) {
-    setLoading(true)
-    setError(null)
-    setRanges([])
-  }
 
   useEffect(() => {
     let cancelled = false
     let first = true
+
+    setRanges([])
+    setError(null)
+    setLoading(true)
 
     const load = () => {
       const from = localDayStartMs(day)
@@ -46,7 +43,6 @@ export function useRecordingsSummary(cameraId: string, day: string) {
         .then((data) => {
           if (!cancelled) {
             setRanges(rangesFromSegments(data, from))
-            setLoadedKey(key)
             setLoading(false)
             first = false
           }
@@ -55,7 +51,6 @@ export function useRecordingsSummary(cameraId: string, day: string) {
           if (!cancelled) {
             if (first) {
               setError(err.message)
-              setLoadedKey(key)
               setLoading(false)
             }
             first = false
