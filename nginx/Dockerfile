@@ -3,6 +3,9 @@ WORKDIR /app
 COPY web-app/package.json web-app/package-lock.json ./
 RUN npm ci
 COPY web-app/ .
+# Optional build-time override for the go2rtc player mode (default: webrtc,mse).
+ARG VITE_STREAM_MODE
+ENV VITE_STREAM_MODE=$VITE_STREAM_MODE
 RUN npm run build
 
 FROM nginx:1.27-alpine
