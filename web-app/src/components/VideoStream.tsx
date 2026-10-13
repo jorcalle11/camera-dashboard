@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { loadVideoStreamElement, posterUrl, streamWsUrl } from "../lib/go2rtc"
+import { STREAM_MODE, loadVideoStreamElement, posterUrl, streamWsUrl } from "../lib/go2rtc"
 
 interface VideoStreamProps {
   cameraId: string
@@ -46,9 +46,11 @@ export default function VideoStream({ cameraId, paused = false, className }: Vid
       muteObserver = null
       container.replaceChildren()
       el = document.createElement("video-stream") as StreamElement
-      // MSE first: starts instantly over the proxied WebSocket. WebRTC needs a
-      // direct UDP path to the host and can stall startup for several seconds.
-      el.mode = "mse"
+      // WebRTC preferred with an MSE fallback: the element starts both and
+      // sticks with WebRTC once it connects. WebRTC rides out the gapped/broken
+      // camera streams that leave MSE stuck (and eventually kill the tab); MSE
+      // still covers clients with no direct UDP path to the host.
+      el.mode = STREAM_MODE
       el.src = streamWsUrl(cameraId)
       el.style.width = "100%"
       el.style.height = "100%"
